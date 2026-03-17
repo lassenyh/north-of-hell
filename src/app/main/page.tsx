@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { ComicScrollPage } from "@/components/ComicScrollPage";
 import { getStoryboardFrames } from "@/lib/supabase/storyboard";
 import type { ComicFrame } from "@/lib/comic-frames";
@@ -6,6 +8,12 @@ import type { ComicFrame } from "@/lib/comic-frames";
 export const dynamic = "force-dynamic";
 
 export default async function MainPage() {
+  const cookieStore = await cookies();
+  const auth = cookieStore.get("noh_auth")?.value;
+  if (!auth) {
+    redirect("/login");
+  }
+
   // Load frames + text from Supabase instead of local placeholders.
   const dbFrames = await getStoryboardFrames();
 
