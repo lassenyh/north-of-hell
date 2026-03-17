@@ -4,12 +4,14 @@ import { IntroClient } from "./IntroClient";
 
 export const dynamic = "force-dynamic";
 
-export default function IntroPage() {
-  const auth = cookies().get("noh_auth")?.value;
+export default async function IntroPage() {
+  const cookieStore = await cookies();
+  const auth = cookieStore.get("noh_auth")?.value;
   if (!auth) {
     redirect("/login");
   }
 
   return <IntroClient />;
 }
+
 
