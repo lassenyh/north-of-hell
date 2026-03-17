@@ -1,0 +1,37 @@
+/**
+ * Placeholder manuscript text for each frame.
+ * One entry per frame; empty string = no text for that frame.
+ */
+export const manuscriptPlaceholders: string[] = [
+  "The road north was long, and the sky never changed.",
+  "",
+  "We had been walking for days when we first saw the lights.",
+  "",
+  "They said the border was just a line on a map.",
+  "We learned otherwise.",
+  "",
+  "The cold here has a different quality. It remembers.",
+  "",
+  "I don't know how many of us are left.",
+  "",
+  "We keep moving. There is nothing behind us now.",
+  "",
+  "The trees thin out. The ground turns to ash and stone.",
+  "",
+  "Someone said they heard voices in the wind.",
+  "We did not ask them to explain.",
+  "",
+  "Night falls quickly here. We make camp in the half-light.",
+  "",
+  "In the morning, the horizon was still the same. Grey. Empty.",
+  "",
+  "We found the first marker at noon.",
+  "",
+  "The inscription was worn away. We did not need to read it.",
+  "",
+  "North of hell, they said. I think we passed that sign long ago.",
+  "",
+  "We walk. The road walks with us.",
+  "",
+  "Tomorrow we will see what is at the end.",
+];
