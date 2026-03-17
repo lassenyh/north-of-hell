@@ -1,22 +1,30 @@
-/**
- * @deprecated Route protection lives in `src/middleware.ts`.
- * This file is kept only as a reference; it is not imported by the app.
- */
-
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/admin/login") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/storyboard")
+    pathname === "/favicon.ico"
   ) {
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/login")) {
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/admin/login")) {
+    const authAdminEarly = request.cookies.get("noh_admin_auth")?.value;
+    if (authAdminEarly) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/storyboard")) {
     return NextResponse.next();
   }
 
@@ -30,11 +38,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (
-    !authMain &&
-    (pathname === "/main" || pathname === "/intro")
-  ) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (pathname === "/main" || pathname === "/intro") {
+    if (!authMain) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();

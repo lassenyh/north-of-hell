@@ -24,51 +24,69 @@ This guide walks you through getting the public storyboard page and admin editor
 
 Save the file. Restart the dev server (`npm run dev`) so it picks up the new variables.
 
-## 4. Create the database table
+## 4. Create the database tables
 
-1. In Supabase, open **SQL Editor** → **New query**.
-2. Open the file `supabase/migrations/001_storyboard_frames.sql` in this repo.
-3. Copy its entire contents into the SQL Editor and click **Run**.
+In **SQL Editor** → **New query**, run each migration file **once**, in order:
 
-You should see “Success. No rows returned.” That means the `storyboard_frames` table and its policies are created.
+| Order | File | Purpose |
+|-------|------|--------|
+| 1 | `supabase/migrations/001_storyboard_frames.sql` | Storyboard frames + text |
+| 2 | `supabase/migrations/002_project_logins.sql` | Users for **main story** (`/login` → intro → scroll) |
+| 3 | `supabase/migrations/003_project_logins_profile.sql` | Optional name/company on story users |
+| 4 | `supabase/migrations/004_project_admin_logins.sql` | Users for **admin editor** only (`/admin/login`) |
+| 5 | `supabase/migrations/005_project_admin_logins_full_name.sql` | Optional **full name** on admin users |
 
-## 5. Seed the table from your images
+## 5. First admin user (required for `/admin`)
 
-The app uses images that are already in `public/storyboard/` (chapter folders). To copy that list into Supabase:
+The storyboard editor at `/admin` uses **separate** accounts from the main site.
 
-1. Start the app: `npm run dev`.
-2. Open [http://localhost:3000/admin](http://localhost:3000/admin).
-3. Click **“Seed database from current images”**.
+1. In SQL Editor, create your first admin (change username/password):
+   ```sql
+   insert into public.project_admin_logins (project_slug, username, password)
+   values ('north-of-hell', 'your-admin', 'your-secure-password');
+   ```
+2. Open [http://localhost:3000/admin/login](http://localhost:3000/admin/login) and sign in.
+3. You’ll be redirected to `/admin`. Under the **Login access** tab you can manage **Guest access** (main story users) and **Admin access** (editor logins), and seed frames from the **Storyboard** tab.
 
-After a moment the page will reload and you’ll see one row per image with a textarea. You can now add or edit manuscript text and click **Save** per frame.
+## 6. Seed the table from your images
 
-## 6. Use the app
+1. With an admin session, open [http://localhost:3000/admin](http://localhost:3000/admin).
+2. On the **Storyboard** tab, click **Re-seed from disk** (or seed when the DB is empty).
 
-- **Public (read-only):** [http://localhost:3000/storyboard](http://localhost:3000/storyboard) — shows all frames and their text.
-- **Admin (edit):** [http://localhost:3000/admin](http://localhost:3000/admin) — edit text and save to Supabase.
+## 7. Use the app
+
+- **Main story:** [http://localhost:3000/login](http://localhost:3000/login) → intro → `/main` (users from **Login access** in admin).
+- **Admin editor:** [http://localhost:3000/admin/login](http://localhost:3000/admin/login) → `/admin` (admin users listed under **Admin access** on the **Login access** tab / `project_admin_logins`).
+- **Public (read-only):** [http://localhost:3000/storyboard](http://localhost:3000/storyboard).
 
 ## Files involved
 
 | File | Purpose |
 |------|--------|
 | `.env.local.example` | Template for Supabase URL and anon key. Copy to `.env.local` and fill in. |
-| `supabase/migrations/001_storyboard_frames.sql` | SQL to create the `storyboard_frames` table and RLS policies. Run once in Supabase SQL Editor. |
-| `src/lib/supabase/client.ts` | Browser Supabase client for Client Components. |
-| `src/lib/supabase/server.ts` | Server Supabase client (uses cookies) for Server Components and API routes. |
-| `src/lib/supabase/storyboard.ts` | Fetches frames and updates frame text. Used by storyboard + admin pages and API. |
-| `src/app/api/seed/route.ts` | `POST /api/seed` — fills `storyboard_frames` from `public/storyboard` images. |
-| `src/app/storyboard/page.tsx` | Public page: lists frames and text from Supabase. |
-| `src/app/admin/page.tsx` | Admin page: loads frames and renders `AdminEditor`. |
-| `src/app/admin/AdminEditor.tsx` | Client UI: textarea per frame, Save button, Seed button. |
-| `src/app/admin/actions.ts` | Server Action that calls `updateFrameText` when you click Save. |
+| `supabase/migrations/*.sql` | Table definitions — run in Supabase SQL Editor. |
+| `src/middleware.ts` | Protects `/main`, `/intro` (story cookie) and `/admin` (admin cookie). |
+| `src/app/api/seed/route.ts` | `POST /api/seed` — requires admin session. Syncs images from disk; does not overwrite saved text. |
+| `src/app/admin/login/` | Admin sign-in (same look as `/login`, no intro). |
 
 ## Troubleshooting
 
+- **`Could not find the 'full_name' column of 'project_admin_logins'`**  
+  Kjør i **SQL Editor**:
+  ```sql
+  alter table public.project_admin_logins
+    add column if not exists full_name text;
+  ```
+  Vent noen sekunder (eller bruk **Settings → API → Reload schema** i Supabase) og prøv igjen.
+
+- **Redirected from `/admin` to `/admin/login`**  
+  Expected until you sign in with an admin account. Create the first admin with SQL (step 5).
+
 - **“No frames in the database”**  
-  Run the seed from the admin page (step 5). Ensure `public/storyboard` has at least one chapter folder with images.
+  Seed from the admin **Storyboard** tab. Ensure `public/storyboard` has chapter folders with images.
 
 - **Seed or save fails**  
-  Check that `.env.local` has the correct URL and anon key and that you ran the SQL migration (step 4).
+  Check `.env.local` and that migrations ran. Seed returns 401 if you’re not logged in as admin.
 
-- **Images don’t show**  
-  Image paths are stored as in `public/storyboard/...`. They must be served from your app; if you moved or renamed folders, run the seed again.
+- **Re-seed and manuscript text**  
+  Re-seed never overwrites saved text on existing frames.

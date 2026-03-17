@@ -12,6 +12,9 @@ type ScrollFrameProps = {
   chapterLabel?: string;
 };
 
+/** Felles høyde over bildet i grid når kun én celle har merkelapp (én linje tekst). */
+const GRID_MARKER_RESERVE = "min-h-[2.75rem]";
+
 export function ScrollFrame({
   frame,
   frameIndex,
@@ -41,6 +44,10 @@ export function ScrollFrame({
     }
   };
 
+  const label = chapterLabel?.trim() ?? "";
+  const isChapterStart = Boolean(label);
+  const isGrid = layout === "grid";
+
   return (
     <article
       className="flex w-full min-w-0 flex-col"
@@ -48,22 +55,25 @@ export function ScrollFrame({
         ? { "data-frame-index": frameIndex, id: `comic-frame-${frameIndex}` }
         : {})}
     >
-      {layout === "grid" ? (
-        // I grid-layout reserverer vi alltid samme høyde, også når det ikke er tittel,
-        // slik at bildene i raden starter på samme vertikale linje.
-        <h2
-          className={`mb-3 mt-2 text-xs font-medium uppercase tracking-[0.18em] [font-family:var(--font-im-fell-english),serif] ${
-            chapterLabel ? "text-[#eaa631] opacity-100" : "opacity-0"
-          }`}
+      {/* Kapittelmerke over bildet + scroll-anker for ChapterNav */}
+      {isChapterStart && typeof frameIndex === "number" ? (
+        <div
+          id={`chapter-title-${frameIndex}`}
+          className={`mb-3 w-full shrink-0 ${isGrid ? GRID_MARKER_RESERVE : ""}`}
         >
-          {chapterLabel || "placeholder"}
-        </h2>
-      ) : chapterLabel ? (
-        <h2 className="mb-4 mt-2 text-xs font-medium uppercase tracking-[0.18em] text-[#eaa631] [font-family:var(--font-im-fell-english),serif]">
-          {chapterLabel}
-        </h2>
+          <div className="inline-flex max-w-full rounded-lg border border-[#eaa631]/45 bg-zinc-950/95 px-3 py-2 shadow-[0_4px_24px_rgba(0,0,0,0.5)] backdrop-blur-sm sm:px-3.5 sm:py-2">
+            <p className="text-left text-[10px] font-medium uppercase leading-snug tracking-[0.14em] text-[#eaa631] [font-family:var(--font-im-fell-english),serif] sm:text-[11px]">
+              {label}
+            </p>
+          </div>
+        </div>
+      ) : isGrid ? (
+        <div
+          className={`mb-3 w-full shrink-0 ${GRID_MARKER_RESERVE}`}
+          aria-hidden
+        />
       ) : null}
-      {/* Container now grows with the image's natural aspect ratio */}
+
       <div
         className="relative w-full overflow-hidden rounded-lg bg-black shadow-[0_0_40px_-8px_rgba(0,0,0,0.08)]"
         onMouseEnter={handleMouseEnter}
@@ -72,7 +82,7 @@ export function ScrollFrame({
         <img
           src={frame.src}
           alt={frame.alt}
-          className={`block w-full h-auto object-contain transition-opacity duration-200 ${
+          className={`block h-auto w-full object-contain transition-opacity duration-200 ${
             videoSrc && isHovered ? "opacity-0" : "opacity-100"
           }`}
           loading={priority ? "eager" : "lazy"}
@@ -82,7 +92,7 @@ export function ScrollFrame({
             ref={videoRef}
             src={videoSrc}
             className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
-              isHovered ? "opacity-100" : "opacity-0 pointer-events-none"
+              isHovered ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
             muted
             loop
@@ -92,10 +102,9 @@ export function ScrollFrame({
         )}
       </div>
 
-      {/* Manuscript text — only render if present */}
       {frame.manuscript ? (
         <p
-          className={`mt-4 w-full text-left leading-relaxed text-white md:mt-6 [font-family:var(--font-lora),serif] ${
+          className={`mt-4 w-full text-left leading-relaxed text-white [font-family:var(--font-lora),serif] md:mt-6 ${
             layout === "grid"
               ? "text-sm sm:text-base"
               : "text-base sm:text-lg sm:leading-loose"

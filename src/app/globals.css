@@ -31,3 +31,19 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Admin: brief “saved” affordance after manuscript save */
+@keyframes admin-saved-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.admin-saved-feedback {
+  animation: admin-saved-pop 0.4s ease-out;
+}

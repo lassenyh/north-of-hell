@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import { login, type LoginState } from "./actions";
+import { adminLogin, type AdminLoginState } from "./actions";
 
-const initialState: LoginState = {};
+const initialState: AdminLoginState = {};
 
-export function LoginForm() {
-  const [state, formAction] = useActionState(login, initialState);
+export function AdminLoginForm() {
+  const [state, formAction] = useActionState(adminLogin, initialState);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -43,11 +43,8 @@ export function LoginForm() {
         Enter
       </button>
       {state.error && (
-        <p className="pt-2 text-xs text-red-400">
-          {state.error}
-        </p>
+        <p className="pt-2 text-xs text-red-400">{state.error}</p>
       )}
     </form>
   );
 }
-

@@ -1,12 +1,12 @@
- "use client";
+"use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SoundtrackProvider } from "@/contexts/SoundtrackContext";
 import { ScrollFrame } from "./ScrollFrame";
-import { FloatingActions } from "./FloatingActions";
-import { SoundtrackScrollSync } from "./SoundtrackScrollSync";
 import { ChapterNav } from "./ChapterNav";
+import { StoryboardFloatingActions } from "./StoryboardFloatingActions";
 import type { ComicFrame } from "@/lib/comic-frames";
+import { getChapterFolderFromImageSrc } from "@/lib/chapter-from-src";
 
 type ComicScrollPageProps = {
   frames: ComicFrame[];
@@ -15,17 +15,16 @@ type ComicScrollPageProps = {
 export function ComicScrollPage({ frames }: ComicScrollPageProps) {
   const chapters = buildChaptersFromFrames(frames);
   const [layout, setLayout] = useState<"list" | "grid">("list");
+  const pendingScrollIndexRef = useRef<number | null>(null);
 
   // Finn kapittelnavn for første bilde i hvert kapittel basert på sti /storyboard/<chapter>/...
   const chapterLabelByIndex: Array<string | undefined> = frames.map(
     (frame, index) => {
-      const parts = frame.src.split("/");
-      const chapterRaw = parts.length > 2 ? parts[2] : "";
+      const chapterRaw = getChapterFolderFromImageSrc(frame.src);
       if (!chapterRaw) return undefined;
       if (index === 0) return chapterRaw;
-      const prevParts = frames[index - 1].src.split("/");
-      const prevChapterRaw = prevParts.length > 2 ? prevParts[2] : "";
-      return chapterRaw !== prevChapterRaw ? chapterRaw : undefined;
+      const prevRaw = getChapterFolderFromImageSrc(frames[index - 1].src);
+      return chapterRaw !== prevRaw ? chapterRaw : undefined;
     }
   );
 
@@ -59,6 +58,66 @@ export function ComicScrollPage({ frames }: ComicScrollPageProps) {
     }
   }
 
+  const handleLayoutChange = (nextLayout: "list" | "grid") => {
+    if (nextLayout === layout) return;
+
+    // Finn bildet som er nærmest midten av viewporten akkurat nå
+    const frameEls = document.querySelectorAll<HTMLElement>("[data-frame-index]");
+    if (!frameEls.length) {
+      setLayout(nextLayout);
+      return;
+    }
+
+    const viewportMiddle = window.scrollY + window.innerHeight / 2;
+    let closestIndex: number | null = null;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    frameEls.forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      const middle = rect.top + window.scrollY + rect.height / 2;
+      const distance = Math.abs(middle - viewportMiddle);
+      const indexAttr = el.getAttribute("data-frame-index");
+      if (indexAttr == null) return;
+      const idx = Number(indexAttr);
+      if (!Number.isFinite(idx)) return;
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = idx;
+      }
+    });
+
+    if (closestIndex !== null) {
+      pendingScrollIndexRef.current = closestIndex;
+    }
+
+    setLayout(nextLayout);
+  };
+
+  useEffect(() => {
+    const index = pendingScrollIndexRef.current;
+    if (index == null) return;
+
+    pendingScrollIndexRef.current = null;
+
+    const target =
+      document.getElementById(`chapter-title-${index}`) ??
+      document.getElementById(`comic-frame-${index}`);
+    if (!target) return;
+
+    const nav = document.querySelector<HTMLElement>("[data-chapter-nav=\"true\"]");
+    const navHeight = nav ? nav.getBoundingClientRect().height : 0;
+    const extraOffset = 20;
+    const targetTop = target.getBoundingClientRect().top + window.scrollY;
+
+    // Overstyr global `scroll-behavior: smooth` for akkurat dette hoppet
+    const htmlEl = document.documentElement;
+    const previousBehavior = htmlEl.style.scrollBehavior;
+    htmlEl.style.scrollBehavior = "auto";
+    window.scrollTo(0, targetTop - navHeight - extraOffset);
+    htmlEl.style.scrollBehavior = previousBehavior;
+  }, [layout]);
+
   return (
     <SoundtrackProvider>
       <div className="min-h-screen w-full bg-black">
@@ -79,46 +138,49 @@ export function ComicScrollPage({ frames }: ComicScrollPageProps) {
           <ChapterNav
             chapters={chapters}
             layout={layout}
-            onLayoutChange={setLayout}
+            onLayoutChange={handleLayoutChange}
+            layoutToggleOrder="list-first"
           />
 
-        {/* Frames with generous vertical rhythm */}
-        {layout === "grid" ? (
-          <div className="mt-8 grid w-full grid-cols-1 gap-10 sm:mt-12 sm:grid-cols-2 sm:gap-12 md:mt-16 md:gap-14">
-            {gridItems.map((item, idx) =>
-              item.kind === "spacer" ? (
-                <div key={item.key} aria-hidden />
-              ) : (
+          {/* Frames with generous vertical rhythm */}
+          {layout === "grid" ? (
+            <div className="mt-8 grid w-full grid-cols-1 gap-10 sm:mt-12 sm:grid-cols-2 sm:gap-12 md:mt-16 md:gap-14">
+              {gridItems.map((item, idx) =>
+                item.kind === "spacer" ? (
+                  <div key={item.key} aria-hidden />
+                ) : (
+                  <ScrollFrame
+                    key={item.frame.src + idx}
+                    frame={item.frame}
+                    frameIndex={item.index}
+                    priority={item.index < 2}
+                    layout={layout}
+                    chapterLabel={item.chapterLabel}
+                  />
+                )
+              )}
+            </div>
+          ) : (
+            <div className="mt-8 flex w-full flex-col gap-12 sm:mt-12 sm:gap-16 md:mt-16 md:gap-20 lg:gap-24">
+              {frames.map((frame, index) => (
                 <ScrollFrame
-                  key={item.frame.src + idx}
-                  frame={item.frame}
-                  frameIndex={item.index}
-                  priority={item.index < 2}
+                  key={frame.src}
+                  frame={frame}
+                  frameIndex={index}
+                  priority={index < 2}
                   layout={layout}
-                  chapterLabel={item.chapterLabel}
+                  chapterLabel={chapterLabelByIndex[index]}
                 />
-              )
-            )}
-          </div>
-        ) : (
-          <div className="mt-8 flex w-full flex-col gap-12 sm:mt-12 sm:gap-16 md:mt-16 md:gap-20 lg:gap-24">
-            {frames.map((frame, index) => (
-              <ScrollFrame
-                key={frame.src}
-                frame={frame}
-                frameIndex={index}
-                priority={index < 2}
-                layout={layout}
-                chapterLabel={chapterLabelByIndex[index]}
-              />
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {/* End spacing */}
-        <div className="h-16 sm:h-24" aria-hidden />
+          {/* End spacing */}
+          <div className="h-16 sm:h-24" aria-hidden />
+
+          <StoryboardFloatingActions />
+        </div>
       </div>
-    </div>
     </SoundtrackProvider>
   );
 }
@@ -133,19 +195,20 @@ function buildChaptersFromFrames(frames: ComicFrame[]): ChapterInfo[] {
   const map = new Map<string, ChapterInfo>();
 
   frames.forEach((frame, index) => {
-    const parts = frame.src.split("/");
-    // src looks like: /storyboard/01 OPENING - WATER TEST/...
-    const chapterRaw = parts.length > 2 ? parts[2] : "Chapter";
-    if (!map.has(chapterRaw)) {
-      const id =
-        "chapter-" +
-        chapterRaw
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9\-]/g, "");
-      map.set(chapterRaw, {
-        id,
-        label: chapterRaw,
+    const parsed = getChapterFolderFromImageSrc(frame.src);
+    const chapterKey = parsed || "__default__";
+    const displayLabel = parsed || "Storyboard";
+    if (!map.has(chapterKey)) {
+      const slug =
+        chapterKey === "__default__"
+          ? "main"
+          : chapterKey
+              .toLowerCase()
+              .replace(/\s+/g, "-")
+              .replace(/[^a-z0-9\-]/g, "");
+      map.set(chapterKey, {
+        id: `chapter-${slug}`,
+        label: displayLabel,
         firstFrameIndex: index,
       });
     }
