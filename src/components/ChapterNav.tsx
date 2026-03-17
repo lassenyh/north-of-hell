@@ -8,13 +8,17 @@ type ChapterNavProps = {
     label: string;
     firstFrameIndex: number;
   }[];
+  layout: "list" | "grid";
+  onLayoutChange: (layout: "list" | "grid") => void;
 };
 
-export function ChapterNav({ chapters }: ChapterNavProps) {
+export function ChapterNav({ chapters, layout, onLayoutChange }: ChapterNavProps) {
   const [activeId, setActiveId] = useState<string | null>(
     chapters[0]?.id ?? null
   );
   const panelRef = useRef<HTMLDivElement>(null);
+  const initialTopRef = useRef<number | null>(null);
+  const [showLogo, setShowLogo] = useState(false);
 
   useEffect(() => {
     if (!chapters.length) return;
@@ -50,6 +54,24 @@ export function ChapterNav({ chapters }: ChapterNavProps) {
     };
   }, [chapters]);
 
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (panel && initialTopRef.current === null) {
+      // Hvor langt ned fra toppen panel-nav'en ligger før den blir sticky
+      initialTopRef.current = panel.offsetTop;
+    }
+
+    const onScroll = () => {
+      if (initialTopRef.current === null) return;
+      // Når vi har scrollet forbi nav'ens opprinnelige posisjon, er den sticky i toppen
+      setShowLogo(window.scrollY >= initialTopRef.current);
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   if (!chapters.length) return null;
 
   const activeChapter = chapters.find((c) => c.id === activeId);
@@ -60,12 +82,12 @@ export function ChapterNav({ chapters }: ChapterNavProps) {
       ref={panelRef}
       className="sticky top-0 z-30 mb-10 border-b border-zinc-800/70 bg-black/80 px-0 py-3 backdrop-blur"
     >
-      <div className="relative mx-auto max-w-[1200px] px-4 sm:px-0">
+      <div className="relative mx-auto flex max-w-[1200px] items-center justify-between px-4 sm:px-0">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+          <span className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">
             Chapters
           </span>
-          <div className="relative inline-block min-w-[220px]">
+          <div className="relative inline-block min-w-[200px]">
             <select
               value={currentValue}
               onChange={(e) => {
@@ -83,7 +105,7 @@ export function ChapterNav({ chapters }: ChapterNavProps) {
                   });
                 }
               }}
-              className="w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-[#eaa631] focus:outline-none focus:ring-1 focus:ring-[#eaa631]"
+              className="w-full rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] text-zinc-100 outline-none focus:border-[#eaa631] focus:outline-none focus:ring-1 focus:ring-[#eaa631]"
             >
               {chapters.map((chapter) => (
                 <option key={chapter.id} value={chapter.id}>
@@ -92,6 +114,44 @@ export function ChapterNav({ chapters }: ChapterNavProps) {
               ))}
             </select>
           </div>
+
+          {/* Layout toggle – del av samme sticky meny */}
+          <div className="ml-4 flex items-center gap-2 text-[11px] text-zinc-500">
+            <span className="uppercase tracking-[0.18em]">
+              Layout
+            </span>
+            <div className="inline-flex rounded-full border border-zinc-700 bg-zinc-900/70 p-0.5">
+              <button
+                type="button"
+                onClick={() => onLayoutChange("list")}
+                className={`rounded-full px-2.5 py-0.5 transition ${
+                  layout === "list"
+                    ? "bg-zinc-100 text-black"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                List
+              </button>
+              <button
+                type="button"
+                onClick={() => onLayoutChange("grid")}
+                className={`rounded-full px-2.5 py-0.5 transition ${
+                  layout === "grid"
+                    ? "bg-zinc-100 text-black"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                Grid
+              </button>
+            </div>
+          </div>
+        </div>
+        <div
+          className={`text-sm font-medium uppercase tracking-tight text-[#eaa631] transition-opacity duration-300 sm:text-base [font-family:var(--font-im-fell-english),serif] ${
+            showLogo ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          North of Hell
         </div>
       </div>
     </nav>

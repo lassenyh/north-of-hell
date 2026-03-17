@@ -8,9 +8,18 @@ type ScrollFrameProps = {
   frameIndex?: number;
   priority?: boolean;
   videoSrc?: string;
+  layout?: "list" | "grid";
+  chapterLabel?: string;
 };
 
-export function ScrollFrame({ frame, frameIndex, priority = false, videoSrc }: ScrollFrameProps) {
+export function ScrollFrame({
+  frame,
+  frameIndex,
+  priority = false,
+  videoSrc,
+  layout = "list",
+  chapterLabel,
+}: ScrollFrameProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -39,6 +48,21 @@ export function ScrollFrame({ frame, frameIndex, priority = false, videoSrc }: S
         ? { "data-frame-index": frameIndex, id: `comic-frame-${frameIndex}` }
         : {})}
     >
+      {layout === "grid" ? (
+        // I grid-layout reserverer vi alltid samme høyde, også når det ikke er tittel,
+        // slik at bildene i raden starter på samme vertikale linje.
+        <h2
+          className={`mb-3 mt-2 text-xs font-medium uppercase tracking-[0.18em] [font-family:var(--font-im-fell-english),serif] ${
+            chapterLabel ? "text-[#eaa631] opacity-100" : "opacity-0"
+          }`}
+        >
+          {chapterLabel || "placeholder"}
+        </h2>
+      ) : chapterLabel ? (
+        <h2 className="mb-4 mt-2 text-xs font-medium uppercase tracking-[0.18em] text-[#eaa631] [font-family:var(--font-im-fell-english),serif]">
+          {chapterLabel}
+        </h2>
+      ) : null}
       {/* Container now grows with the image's natural aspect ratio */}
       <div
         className="relative w-full overflow-hidden rounded-lg bg-black shadow-[0_0_40px_-8px_rgba(0,0,0,0.08)]"
@@ -70,7 +94,13 @@ export function ScrollFrame({ frame, frameIndex, priority = false, videoSrc }: S
 
       {/* Manuscript text — only render if present */}
       {frame.manuscript ? (
-        <p className="mt-6 w-full text-left text-base leading-relaxed text-white sm:text-lg sm:leading-loose md:mt-8 [font-family:var(--font-lora),serif]">
+        <p
+          className={`mt-4 w-full text-left leading-relaxed text-white md:mt-6 [font-family:var(--font-lora),serif] ${
+            layout === "grid"
+              ? "text-sm sm:text-base"
+              : "text-base sm:text-lg sm:leading-loose"
+          }`}
+        >
           {frame.manuscript}
         </p>
       ) : null}
