@@ -50,14 +50,6 @@ export default function LoginPage() {
             >
               Enter
             </button>
-            <div className="pt-3 text-center">
-              <Link
-                href="/intro"
-                className="text-[11px] text-zinc-500 underline underline-offset-4 hover:text-zinc-300"
-              >
-                Preview intro
-              </Link>
-            </div>
           </form>
         </div>
       </div>
