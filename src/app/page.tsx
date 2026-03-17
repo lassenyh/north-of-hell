@@ -2,6 +2,9 @@ import { ComicScrollPage } from "@/components/ComicScrollPage";
 import { getStoryboardFrames } from "@/lib/supabase/storyboard";
 import type { ComicFrame } from "@/lib/comic-frames";
 
+// Avoid static prerender at build time (needs Supabase at request time)
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   // Load frames + text from Supabase instead of local placeholders.
   const dbFrames = await getStoryboardFrames();

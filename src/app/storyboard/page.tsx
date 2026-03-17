@@ -7,6 +7,8 @@
 import Link from "next/link";
 import { getStoryboardFrames } from "@/lib/supabase/storyboard";
 
+export const dynamic = "force-dynamic";
+
 export default async function StoryboardPage() {
   const frames = await getStoryboardFrames();
 

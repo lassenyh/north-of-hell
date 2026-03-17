@@ -8,6 +8,8 @@ import Link from "next/link";
 import { getStoryboardFrames } from "@/lib/supabase/storyboard";
 import { AdminEditor } from "./AdminEditor";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   const frames = await getStoryboardFrames();
 
