@@ -50,10 +50,10 @@ export default function IntroPage() {
       }, 9500)
     );
 
-    // Etter alt, gå videre til storyboard-siden (kort pause på svart)
+    // Etter alt, gå videre til hovedsiden (kort pause på svart)
     timeouts.push(
       window.setTimeout(() => {
-        router.replace("/storyboard");
+        router.replace("/");
       }, 10500)
     );
 
