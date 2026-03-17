@@ -18,8 +18,8 @@ export function proxy(request: NextRequest) {
 
   const authCookie = request.cookies.get("noh_auth")?.value;
 
-  // Beskytt forsiden og admin-siden
-  if (!authCookie && (pathname === "/" || pathname.startsWith("/admin"))) {
+  // Beskytt hovedsiden (/main) og admin-siden, men la / være login-forside.
+  if (!authCookie && (pathname === "/main" || pathname.startsWith("/admin"))) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

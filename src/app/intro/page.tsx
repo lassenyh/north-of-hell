@@ -53,7 +53,7 @@ export default function IntroPage() {
     // Etter alt, gå videre til hovedsiden (kort pause på svart)
     timeouts.push(
       window.setTimeout(() => {
-        router.replace("/");
+        router.replace("/main");
       }, 10500)
     );
 
