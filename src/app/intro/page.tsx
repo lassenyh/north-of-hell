@@ -72,7 +72,7 @@ export default function IntroPage() {
               filmVisible ? "opacity-100" : "opacity-0"
             }`}
           >
-            a film by niels windeldt
+            a film by niels windfeldt
           </p>
 
           {/* Hovedtittel + undertittel, også sentrert på samme posisjon */}

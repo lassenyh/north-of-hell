@@ -66,7 +66,7 @@ export function ComicScrollPage({ frames }: ComicScrollPageProps) {
           {/* Header */}
           <header className="mb-24 flex flex-col items-center text-center sm:mb-28">
             <p className="mb-4 text-xs lowercase tracking-[0.25em] text-zinc-500 sm:text-sm [font-family:var(--font-im-fell-english),serif]">
-              a film by niels windeldt
+              a film by niels windfeldt
             </p>
             <h1 className="text-4xl font-medium uppercase tracking-tight text-[#eaa631] sm:text-6xl [font-family:var(--font-im-fell-english),serif]">
               North of Hell
