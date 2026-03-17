@@ -4,17 +4,24 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { validateLogin } from "@/lib/supabase/auth";
 
-export async function login(formData: FormData) {
+export type LoginState = {
+  error?: string;
+};
+
+export async function login(
+  _prevState: LoginState,
+  formData: FormData
+): Promise<LoginState> {
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "").trim();
 
   if (!username || !password) {
-    redirect("/login?error=invalid");
+    return { error: "Incorrect username or password." };
   }
 
   const user = await validateLogin(username, password);
   if (!user) {
-    redirect("/login?error=invalid");
+    return { error: "Incorrect username or password." };
   }
 
   const cookieStore = await cookies();

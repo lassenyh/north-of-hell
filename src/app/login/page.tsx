@@ -1,14 +1,8 @@
-import { login } from "./actions";
+import { LoginForm } from "./LoginForm";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams?: { error?: string };
-}) {
-  const hasError = searchParams?.error === "invalid";
-
+export default function LoginPage() {
   return (
     <div className="min-h-screen bg-black">
       <div className="mx-auto flex min-h-screen max-w-[1200px] items-center justify-center px-6 sm:px-8 md:px-12 lg:px-16">
@@ -22,45 +16,7 @@ export default function LoginPage({
             </h1>
           </header>
 
-          <form action={login} className="space-y-5">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-                Username
-              </label>
-              <input
-                name="username"
-                type="text"
-                autoComplete="username"
-                className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 outline-none ring-0 transition focus:border-[#eaa631] focus:ring-2 focus:ring-[#eaa631]/40"
-                placeholder="username"
-                required
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-                Password
-              </label>
-              <input
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 outline-none ring-0 transition focus:border-[#eaa631] focus:ring-2 focus:ring-[#eaa631]/40"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="mt-4 w-full rounded-2xl bg-[#eaa631] px-4 py-2.5 text-sm font-medium text-black transition hover:bg-[#f1b64f] active:bg-[#dda124]"
-            >
-              Enter
-            </button>
-            {hasError && (
-              <p className="pt-2 text-xs text-red-400">
-                Incorrect username or password. Please try again.
-              </p>
-            )}
-          </form>
+          <LoginForm />
         </div>
       </div>
     </div>
