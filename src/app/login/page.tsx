@@ -1,9 +1,14 @@
-import Link from "next/link";
 import { login } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams?: { error?: string };
+}) {
+  const hasError = searchParams?.error === "invalid";
+
   return (
     <div className="min-h-screen bg-black">
       <div className="mx-auto flex min-h-screen max-w-[1200px] items-center justify-center px-6 sm:px-8 md:px-12 lg:px-16">
@@ -50,6 +55,11 @@ export default function LoginPage() {
             >
               Enter
             </button>
+            {hasError && (
+              <p className="pt-2 text-xs text-red-400">
+                Incorrect username or password. Please try again.
+              </p>
+            )}
           </form>
         </div>
       </div>

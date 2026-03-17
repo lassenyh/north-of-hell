@@ -9,12 +9,12 @@ export async function login(formData: FormData) {
   const password = String(formData.get("password") ?? "").trim();
 
   if (!username || !password) {
-    return;
+    redirect("/login?error=invalid");
   }
 
   const user = await validateLogin(username, password);
   if (!user) {
-    return;
+    redirect("/login?error=invalid");
   }
 
   const cookieStore = await cookies();
