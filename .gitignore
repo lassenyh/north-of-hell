@@ -42,4 +42,6 @@ next-env.d.ts
 
 # Large video assets (GitHub rejects files > 100 MB). Keep these paths locally or host elsewhere.
 public/location/*.mp4
+public/animatic/*.mp4
+# Legacy path (app uses public/animatic/ now — do not re-add this file to Git)
 public/storyboard/**/NOH_FISHINGSTORM_ANIMATICS.mp4

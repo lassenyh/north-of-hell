@@ -4,8 +4,7 @@ import { ChromeVideoPlayer } from "@/components/ChromeVideoPlayer";
 import { MainSiteHeaderLogo } from "@/components/MainSiteHeaderLogo";
 import { MainSiteMenu } from "@/components/MainSiteMenu";
 import { MAIN_SITE_HEADER_INNER } from "@/lib/main-site-layout";
-
-const VIDEO_SRC = "/location/NOH_LOCATION_WEB_1.mp4";
+import { PUBLIC_LOCATION_VIDEO } from "@/lib/public-video-paths";
 
 export function ExploreLocationClient() {
   return (
@@ -29,7 +28,7 @@ export function ExploreLocationClient() {
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-2 py-4 sm:px-4">
         <div className="w-full max-w-[min(100%,2200px)]">
           <ChromeVideoPlayer
-            src={VIDEO_SRC}
+            src={PUBLIC_LOCATION_VIDEO}
             showFullscreen
             videoClassName="block h-auto max-h-[calc(100dvh-4rem)] w-full cursor-pointer object-contain"
           />

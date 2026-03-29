@@ -1,10 +1,7 @@
 "use client";
 
 import { ChromeVideoPlayer } from "@/components/ChromeVideoPlayer";
-
-/** MP4 under public/storyboard (URL-encoded path) */
-const VIDEO_SRC =
-  "/storyboard/10%20CAMP%20FIRE%20STORY/NOH_FISHINGSTORM_ANIMATICS.mp4";
+import { PUBLIC_FISHING_STORM_ANIMATIC } from "@/lib/public-video-paths";
 
 /** Vis video rett etter denne PNG-rammen */
 export const STORYBOARD_FISHING_STORM_AFTER = "NOH_color_00224_cropped";
@@ -34,7 +31,7 @@ type Props = { mode: "list" | "grid" };
 export function StoryboardFishingStormVideo({ mode }: Props) {
   const player = (
     <ChromeVideoPlayer
-      src={VIDEO_SRC}
+      src={PUBLIC_FISHING_STORM_ANIMATIC}
       showFullscreen
       disablePictureInPicture
       videoClassName="block h-auto w-full cursor-pointer object-contain"
