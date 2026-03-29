@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { SoundtrackProvider } from "@/contexts/SoundtrackContext";
+import {
+  showFishingStormVideoAfter,
+  StoryboardFishingStormVideo,
+} from "./StoryboardFishingStormVideo";
 import { ScrollFrame } from "./ScrollFrame";
 import { ChapterNav } from "./ChapterNav";
-import { StoryboardFloatingActions } from "./StoryboardFloatingActions";
+import { MainSiteHeaderLogo } from "./MainSiteHeaderLogo";
+import { MainSiteMenu } from "./MainSiteMenu";
+import { StoryboardToolbarInline } from "./StoryboardFloatingActions";
+import { MAIN_SITE_HEADER_INNER } from "@/lib/main-site-layout";
+import { ScreenplayModal } from "./storyboard/ScreenplayModal";
 import type { ComicFrame } from "@/lib/comic-frames";
 import { getChapterFolderFromImageSrc } from "@/lib/chapter-from-src";
 
@@ -15,6 +23,11 @@ type ComicScrollPageProps = {
 export function ComicScrollPage({ frames }: ComicScrollPageProps) {
   const chapters = buildChaptersFromFrames(frames);
   const [layout, setLayout] = useState<"list" | "grid">("list");
+  const [screenplayOpenState, setScreenplayOpenState] = useState<{
+    frameText: string;
+    originRect: DOMRect;
+    imageSrc: string;
+  } | null>(null);
   const pendingScrollIndexRef = useRef<number | null>(null);
 
   // Finn kapittelnavn for første bilde i hvert kapittel basert på sti /storyboard/<chapter>/...
@@ -33,6 +46,7 @@ export function ComicScrollPage({ frames }: ComicScrollPageProps) {
   const gridItems: Array<
     | { kind: "frame"; frame: ComicFrame; index: number; chapterLabel?: string }
     | { kind: "spacer"; key: string }
+    | { kind: "video-block"; key: string }
   > = [];
 
   if (layout === "grid") {
@@ -55,6 +69,12 @@ export function ComicScrollPage({ frames }: ComicScrollPageProps) {
         chapterLabel: label,
       });
       gridIndex += 1;
+
+      if (showFishingStormVideoAfter(frames[i].src)) {
+        gridItems.push({ kind: "video-block", key: `fishing-storm-${i}` });
+        // Video: én rad, full bredde (2 kolonner). Neste frame skal starte venstre på neste rad.
+        gridIndex += 2 + (gridIndex % 2);
+      }
     }
   }
 
@@ -118,36 +138,52 @@ export function ComicScrollPage({ frames }: ComicScrollPageProps) {
     htmlEl.style.scrollBehavior = previousBehavior;
   }, [layout]);
 
+  const siteMenuSlot = (
+    <div
+      className={`${MAIN_SITE_HEADER_INNER} flex flex-wrap items-center justify-between gap-y-3 py-3`}
+    >
+      <MainSiteHeaderLogo />
+      <div className="flex shrink-0 items-center">
+        <MainSiteMenu
+          homeHref="/main"
+          storyboardHref="/main/storyboard"
+          exploreLocationHref="/main/explore-location"
+          screenplayHref="/main/screenplay"
+        />
+      </div>
+    </div>
+  );
+
   return (
     <SoundtrackProvider>
       <div className="min-h-screen w-full bg-black">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-col items-stretch pt-32 sm:pt-40 md:pt-48 pb-8 sm:pb-12 px-6 sm:px-8 md:px-12 lg:px-16">
-          {/* Header */}
-          <header className="mb-24 flex flex-col items-center text-center sm:mb-28">
-            <p className="mb-4 text-xs lowercase tracking-[0.25em] text-zinc-500 sm:text-sm [font-family:var(--font-im-fell-english),serif]">
-              a film by niels windfeldt
-            </p>
-            <h1 className="text-4xl font-medium uppercase tracking-tight text-[#eaa631] sm:text-6xl [font-family:var(--font-im-fell-english),serif]">
-              North of Hell
-            </h1>
-            <p className="mt-3 max-w-xl text-lg text-zinc-400 sm:text-xl [font-family:var(--font-im-fell-english),serif]">
-              the storm is never an accident
-            </p>
-          </header>
+        <ChapterNav
+          chapters={chapters}
+          layout={layout}
+          onLayoutChange={handleLayoutChange}
+          layoutToggleOrder="list-first"
+          siteMenuSlot={siteMenuSlot}
+          chaptersPlacement="stickyChapters"
+          logoAfterScrollY={280}
+          toolbarTrailing={<StoryboardToolbarInline />}
+        />
 
-          <ChapterNav
-            chapters={chapters}
-            layout={layout}
-            onLayoutChange={handleLayoutChange}
-            layoutToggleOrder="list-first"
-          />
+        <div className="mx-auto flex w-full max-w-[1200px] flex-col items-stretch px-6 pb-8 pt-2 sm:px-8 sm:pb-12 md:px-12 lg:px-16">
+          <div className="mx-auto mb-10 mt-6 max-w-2xl text-center sm:mb-12 sm:mt-8">
+            <p className="text-[1.094rem] lowercase leading-relaxed text-zinc-400 sm:text-[1.25rem] [font-family:var(--font-im-fell-english),serif]">
+              Choose a chapter and view (list or grid) in the bar above. Each frame has a screenplay
+              icon — click it to open the screenplay section that matches that frame.
+            </p>
+          </div>
 
           {/* Frames with generous vertical rhythm */}
           {layout === "grid" ? (
-            <div className="mt-8 grid w-full grid-cols-1 gap-10 sm:mt-12 sm:grid-cols-2 sm:gap-12 md:mt-16 md:gap-14">
+            <div className="grid w-full grid-cols-1 gap-10 sm:grid-cols-2 sm:gap-12 md:gap-14">
               {gridItems.map((item, idx) =>
                 item.kind === "spacer" ? (
                   <div key={item.key} aria-hidden />
+                ) : item.kind === "video-block" ? (
+                  <StoryboardFishingStormVideo key={item.key} mode="grid" />
                 ) : (
                   <ScrollFrame
                     key={item.frame.src + idx}
@@ -156,21 +192,27 @@ export function ComicScrollPage({ frames }: ComicScrollPageProps) {
                     priority={item.index < 2}
                     layout={layout}
                     chapterLabel={item.chapterLabel}
+                    onOpenScreenplay={(args) => setScreenplayOpenState(args)}
                   />
                 )
               )}
             </div>
           ) : (
-            <div className="mt-8 flex w-full flex-col gap-12 sm:mt-12 sm:gap-16 md:mt-16 md:gap-20 lg:gap-24">
+            <div className="flex w-full flex-col gap-12 sm:gap-16 md:gap-20 lg:gap-24">
               {frames.map((frame, index) => (
-                <ScrollFrame
-                  key={frame.src}
-                  frame={frame}
-                  frameIndex={index}
-                  priority={index < 2}
-                  layout={layout}
-                  chapterLabel={chapterLabelByIndex[index]}
-                />
+                <Fragment key={frame.src}>
+                  <ScrollFrame
+                    frame={frame}
+                    frameIndex={index}
+                    priority={index < 2}
+                    layout={layout}
+                    chapterLabel={chapterLabelByIndex[index]}
+                    onOpenScreenplay={(args) => setScreenplayOpenState(args)}
+                  />
+                  {showFishingStormVideoAfter(frame.src) ? (
+                    <StoryboardFishingStormVideo mode="list" />
+                  ) : null}
+                </Fragment>
               ))}
             </div>
           )}
@@ -178,7 +220,12 @@ export function ComicScrollPage({ frames }: ComicScrollPageProps) {
           {/* End spacing */}
           <div className="h-16 sm:h-24" aria-hidden />
 
-          <StoryboardFloatingActions />
+          <ScreenplayModal
+            isOpen={screenplayOpenState !== null}
+            frameText={screenplayOpenState?.frameText ?? ""}
+            originRect={screenplayOpenState?.originRect ?? null}
+            onClose={() => setScreenplayOpenState(null)}
+          />
         </div>
       </div>
     </SoundtrackProvider>

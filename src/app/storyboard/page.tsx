@@ -6,6 +6,7 @@
 
 import Link from "next/link";
 import { getStoryboardFrames } from "@/lib/supabase/storyboard";
+import { StoryboardFramesWithScreenplay } from "@/components/storyboard/StoryboardFramesWithScreenplay";
 
 export const dynamic = "force-dynamic";
 
@@ -48,27 +49,7 @@ export default async function StoryboardPage() {
           </p>
         </header>
 
-        <div className="flex flex-col gap-12 sm:gap-16">
-          {frames.map((frame, index) => (
-            <article key={frame.id} className="flex w-full flex-col">
-              <div className="relative w-full overflow-hidden rounded-lg bg-black">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={frame.image_src}
-                  alt={`Frame ${index + 1}`}
-                  className="block w-full h-auto object-contain"
-                />
-              </div>
-              {frame.text ? (
-                <p className="mt-4 w-full text-left text-base leading-relaxed text-white sm:text-lg [font-family:var(--font-lora),serif]">
-                  {frame.text}
-                </p>
-              ) : (
-                <p className="mt-4 text-sm text-zinc-600">No text yet.</p>
-              )}
-            </article>
-          ))}
-        </div>
+        <StoryboardFramesWithScreenplay frames={frames} />
 
         <div className="mt-16 h-12" />
       </div>

@@ -47,3 +47,40 @@ body {
 .admin-saved-feedback {
   animation: admin-saved-pop 0.4s ease-out;
 }
+
+/* Screenplay: én åpen linje etter scene før action, og etter action før karakter */
+.screenplay-manuscript-flow > [data-block-type="scene_heading"]
+  + [data-block-type="action"] {
+  margin-top: 1.15em;
+}
+.screenplay-manuscript-flow > [data-block-type="action"] + [data-block-type="character"] {
+  margin-top: 1.15em;
+}
+.screenplay-manuscript-flow > [data-block-type="action"] + [data-block-type="scene_heading"] {
+  margin-top: 1.15em;
+}
+
+/* Grid view: scene og action sidestilt; list view: midtstilt (default fra block-klasser) */
+[data-layout="grid"] .screenplay-manuscript-flow > [data-block-type="scene_heading"],
+[data-layout="grid"] .screenplay-manuscript-flow > [data-block-type="action"] {
+  text-align: left;
+}
+
+/* Grid manuskript-scroll: diskret overlay, mørk, tynn scrollbar */
+.grid-manuscript-scroll {
+  scrollbar-color: rgba(63, 63, 70, 0.6) transparent;
+  scrollbar-width: thin;
+}
+.grid-manuscript-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.grid-manuscript-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.grid-manuscript-scroll::-webkit-scrollbar-thumb {
+  background: rgba(63, 63, 70, 0.5);
+  border-radius: 3px;
+}
+.grid-manuscript-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(82, 82, 91, 0.6);
+}

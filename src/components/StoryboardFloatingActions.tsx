@@ -4,7 +4,18 @@ import { useEffect, useState } from "react";
 
 const SCROLL_TOP_REVEAL_PX = 100;
 
-export function StoryboardFloatingActions() {
+/** Samme «pill»-skall som List/Grid i ChapterNav. */
+const toolbarPillShellClass =
+  "inline-flex shrink-0 rounded-full border border-zinc-700 bg-zinc-900/70 p-0.5";
+
+/**
+ * Samme indre mål som List/Grid: px-2.5 py-0.5 + min høyde/bredde så ikon-knappen
+ * ikke blir lavere/smalere enn tekstknappene.
+ */
+const fullscreenBtnClass =
+  "inline-flex min-h-5 min-w-10 shrink-0 items-center justify-center rounded-full px-2.5 py-0.5 text-[11px] text-zinc-400 transition hover:text-zinc-200";
+
+function StoryboardToolbarButtons() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [scrollTopUnlocked, setScrollTopUnlocked] = useState(false);
 
@@ -42,43 +53,15 @@ export function StoryboardFloatingActions() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const scrollTopBtnClass =
-    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/80 text-zinc-300 shadow-lg transition-all duration-200 hover:border-zinc-400 hover:text-white opacity-100";
-
-  const fullscreenBtnClass =
-    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/80 text-zinc-300 shadow-lg hover:border-zinc-400 hover:text-white";
-
   return (
-    <div className="fixed bottom-5 right-5 z-40 flex flex-row-reverse items-center gap-2 sm:gap-3">
-      {scrollTopUnlocked ? (
+    <>
+      <div className={toolbarPillShellClass}>
         <button
           type="button"
-          onClick={scrollToTop}
-          className={scrollTopBtnClass}
-          aria-label="Scroll to top"
+          onClick={toggleFullscreen}
+          className={fullscreenBtnClass}
+          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
         >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4"
-            aria-hidden="true"
-          >
-            <path
-              d="M12 5v14M12 5l4.5 4.5M12 5L7.5 9.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        className={fullscreenBtnClass}
-        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-      >
         {isFullscreen ? (
           <svg
             viewBox="0 0 24 24"
@@ -150,7 +133,37 @@ export function StoryboardFloatingActions() {
             />
           </svg>
         )}
-      </button>
+        </button>
+      </div>
+      {scrollTopUnlocked ? (
+        <div className={toolbarPillShellClass}>
+          <button
+            type="button"
+            onClick={scrollToTop}
+            className="inline-flex min-h-5 items-center justify-center rounded-full px-2.5 py-0.5 font-sans text-[11px] text-zinc-400 transition hover:text-zinc-200"
+          >
+            Scroll to top
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/** Storyboard: ved siden av Layout (List/Grid) i kapittelraden. */
+export function StoryboardToolbarInline() {
+  return (
+    <div className="ml-2 flex items-center gap-1.5 sm:ml-3 sm:gap-2">
+      <StoryboardToolbarButtons />
+    </div>
+  );
+}
+
+/** Flytende knapper (f.eks. admin storyboard). */
+export function StoryboardFloatingActions() {
+  return (
+    <div className="fixed bottom-5 right-5 z-40 flex flex-row-reverse items-center gap-2 sm:gap-3">
+      <StoryboardToolbarButtons />
     </div>
   );
 }

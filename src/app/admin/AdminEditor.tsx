@@ -1,10 +1,34 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+
+const ScreenplayEditor = dynamic(
+  () =>
+    import("@/components/screenplay/ScreenplayEditor").then((m) => ({
+      default: m.ScreenplayEditor,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="min-h-[78px] w-full animate-pulse rounded-2xl border border-zinc-700 bg-zinc-900/70"
+        aria-hidden
+      />
+    ),
+  }
+);
+import { ManuscriptRichEditor } from "@/components/ManuscriptRichEditor";
 import { ChapterNav } from "@/components/ChapterNav";
 import { StoryboardFloatingActions } from "@/components/StoryboardFloatingActions";
 import { getChapterFolderFromImageSrc } from "@/lib/chapter-from-src";
+import {
+  isScreenplayJsonString,
+  legacyTextToScreenplayBlocks,
+  parseScreenplayBlocks,
+  stringifyScreenplayBlocks,
+} from "@/lib/screenplay-json";
 import {
   updateFrameText,
   createLogin,
@@ -711,10 +735,80 @@ function AdminFrameRow({
   onSave: (frame: StoryboardFrame, text: string) => void;
 }) {
   const [text, setText] = useState(frame.text);
+  /**
+   * Plain editor er klar med én gang.
+   * Screenplay (inkl. tomme felt som default screenplay) venter på Tiptap onReady.
+   */
+  const [editorReady, setEditorReady] = useState(() => {
+    if (isScreenplayJsonString(frame.text)) return false;
+    if (!frame.text.trim()) return false;
+    return true;
+  });
+  /** Tomme felt → screenplay som standard; ellers plain kun for lagret plain/legacy-tekst. */
+  const [editorMode, setEditorMode] = useState<"screenplay" | "plain">(() =>
+    isScreenplayJsonString(frame.text) || !frame.text.trim()
+      ? "screenplay"
+      : "plain"
+  );
+  const [screenplaySnapshot, setScreenplaySnapshot] = useState<string | null>(() =>
+    isScreenplayJsonString(frame.text) ? frame.text : null
+  );
+  const [plainDirty, setPlainDirty] = useState(false);
+  const plainInitialRef = useRef<string | null>(null);
+  /** Ved switch plain→screenplay: gi editoren riktig JSON før setState har oppdatert. */
+  const pendingScreenplayContentRef = useRef<string | null>(null);
   const label = chapterLabel?.trim() ?? "";
   const isChapterStart = Boolean(label);
   const isGrid = layout === "grid";
   const fileName = frame.image_src.split("/").pop() ?? frame.image_src;
+
+  const switchToScreenplay = () => {
+    setEditorMode("screenplay");
+    setEditorReady(false);
+    const contentToUse =
+      editorMode === "plain" && screenplaySnapshot && !plainDirty
+        ? screenplaySnapshot
+        : null;
+    setText((prev) => {
+      if (contentToUse) {
+        pendingScreenplayContentRef.current = contentToUse;
+        return contentToUse;
+      }
+      if (isScreenplayJsonString(prev)) {
+        pendingScreenplayContentRef.current = prev;
+        return prev;
+      }
+      const blocks = legacyTextToScreenplayBlocks(prev);
+      const json = stringifyScreenplayBlocks(blocks);
+      pendingScreenplayContentRef.current = json;
+      return json;
+    });
+    setPlainDirty(false);
+  };
+
+  const switchToPlain = () => {
+    setEditorMode("plain");
+    setEditorReady(true);
+    setText((prev) => {
+      if (!isScreenplayJsonString(prev)) return prev;
+      // Ta vare på original screenplay-streng slik at vi kan runde-trip'e uten tap
+      setScreenplaySnapshot(prev);
+      const blocks = parseScreenplayBlocks(prev);
+      const plain = blocks
+        .map((b) => {
+          const raw = b.text ?? "";
+          // Fjern HTML line-breaks når vi viser som "plain"
+          return raw.replace(/<br\s*\/?>/gi, "\n");
+        })
+        .join("\n\n")
+        // Unngå at vi bygger opp flere og flere tomlinjer
+        .replace(/\n{3,}/g, "\n\n")
+        .trimEnd();
+      plainInitialRef.current = plain;
+      return plain;
+    });
+    setPlainDirty(false);
+  };
 
   return (
     <article
@@ -757,16 +851,96 @@ function AdminFrameRow({
         </div>
         <p className="text-xs text-zinc-500">{fileName}</p>
         <div>
-          <label className="mb-1 block text-xs uppercase tracking-wide text-zinc-500">
-            Manuscript text (frame {globalIndex + 1})
-          </label>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={layout === "grid" ? 4 : 3}
-            className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-[#eaa631] focus:outline-none focus:ring-1 focus:ring-[#eaa631]"
-            placeholder="Enter manuscript text…"
-          />
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <label className="block text-xs uppercase tracking-wide text-zinc-500">
+              Manuscript — frame {globalIndex + 1}
+            </label>
+            <div className="inline-flex rounded-full bg-zinc-900/80 p-0.5 text-[11px]">
+              <button
+                type="button"
+                onClick={switchToScreenplay}
+                className={`px-2.5 py-1 rounded-full ${
+                  editorMode === "screenplay"
+                    ? "bg-[#eaa631] text-black font-medium"
+                    : "text-zinc-400 hover:text-zinc-100"
+                }`}
+              >
+                Screenplay
+              </button>
+              <button
+                type="button"
+                onClick={switchToPlain}
+                className={`px-2.5 py-1 rounded-full ${
+                  editorMode === "plain"
+                    ? "bg-[#eaa631] text-black font-medium"
+                    : "text-zinc-400 hover:text-zinc-100"
+                }`}
+              >
+                Plain text
+              </button>
+            </div>
+          </div>
+
+          {editorMode === "screenplay" ? (
+            <>
+              <p className="mb-1.5 text-[11px] leading-snug text-zinc-500">
+                <kbd className="rounded bg-zinc-800 px-1">⌘1</kbd> scene,{" "}
+                <kbd className="rounded bg-zinc-800 px-1">⌘2</kbd> action,{" "}
+                <kbd className="rounded bg-zinc-800 px-1">⌘3</kbd> character,{" "}
+                <kbd className="rounded bg-zinc-800 px-1">⌘4</kbd> dialogue,{" "}
+                <kbd className="rounded bg-zinc-800 px-1">⌘5</kbd> parenthetical,{" "}
+                <kbd className="rounded bg-zinc-800 px-1">⌘6</kbd> transition.{" "}
+                <kbd className="rounded bg-zinc-800 px-1">Tab</kbd> cycles
+                character → dialogue → action. Enter etter character → dialogue;
+                etter dialogue → action.{" "}
+                <kbd className="rounded bg-zinc-800 px-1">⇧Enter</kbd> linjeskift i
+                blokken. <strong>Lim inn:</strong> Fountain-lignende tekst eller
+                HTML fra Docs / WriterDuet / tabeller tolkes til blokker (scene,
+                action, karakter, replikk …) og fet/kursiv. Lange utdrag eller
+                tydelig manusstruktur aktiverer lim-inn; enkelt ord/linje limes som
+                vanlig.
+              </p>
+              <ScreenplayEditor
+                key={`${frame.id}-screenplay`}
+                initialContent={pendingScreenplayContentRef.current ?? text}
+                onChange={(next) => {
+                  pendingScreenplayContentRef.current = null;
+                  setText(next);
+                }}
+                onReady={() => {
+                  pendingScreenplayContentRef.current = null;
+                  setEditorReady(true);
+                }}
+                layout={layout}
+                minRows={layout === "grid" ? 6 : 5}
+                className="w-full"
+              />
+            </>
+          ) : (
+            <>
+              <p className="mb-1.5 text-[11px] leading-snug text-zinc-500">
+                Enkel riktekst (fet/kursiv, linjeskift). Ingen screenplay-blokker
+                eller spesielle snarveier.
+              </p>
+              <ManuscriptRichEditor
+                key={`${frame.id}-plain`}
+                defaultValue={text}
+                onChange={(val) => {
+                  setText(val);
+                  const initial = plainInitialRef.current;
+                  if (initial == null) {
+                    setPlainDirty(true);
+                    return;
+                  }
+                  setPlainDirty(val !== initial);
+                }}
+                minRows={layout === "grid" ? 6 : 5}
+                className={`w-full rounded-2xl border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-100 ${
+                  layout === "list" ? "text-center" : "text-left"
+                }`}
+              />
+            </>
+          )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {saving ? (
               <button
@@ -799,7 +973,7 @@ function AdminFrameRow({
               <button
                 type="button"
                 onClick={() => onSave(frame, text)}
-                disabled={text === frame.text}
+                disabled={!editorReady || text === frame.text}
                 className="rounded-2xl bg-[#eaa631] px-3 py-1.5 text-sm font-medium text-black transition hover:bg-[#f1b64f] disabled:opacity-50"
               >
                 Save

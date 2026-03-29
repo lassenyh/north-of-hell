@@ -2,6 +2,9 @@
 
 import { useRef, useState } from "react";
 import type { ComicFrame } from "@/lib/comic-frames";
+import { getManuscriptDisplayLength } from "@/lib/screenplay-json";
+import { ManuscriptText } from "@/components/ManuscriptText";
+import { FrameScriptTrigger } from "@/components/storyboard/FrameScriptTrigger";
 
 type ScrollFrameProps = {
   frame: ComicFrame;
@@ -10,10 +13,21 @@ type ScrollFrameProps = {
   videoSrc?: string;
   layout?: "list" | "grid";
   chapterLabel?: string;
+  onOpenScreenplay?: (args: {
+    frameText: string;
+    originRect: DOMRect;
+    imageSrc: string;
+  }) => void;
 };
 
 /** Felles høyde over bildet i grid når kun én celle har merkelapp (én linje tekst). */
 const GRID_MARKER_RESERVE = "min-h-[2.75rem]";
+
+/** I grid: hvis manus overstiger denne lengden (tegn inkl. mellomrom), vis scroll. */
+const GRID_SCROLL_THRESHOLD = 450;
+
+/** Maks høyde på scroll-ruten slik at overflow slår inn; stor nok til å ligne en full rute uten scroll. */
+const GRID_SCROLL_MAX_HEIGHT = "22rem";
 
 export function ScrollFrame({
   frame,
@@ -22,15 +36,14 @@ export function ScrollFrame({
   videoSrc,
   layout = "list",
   chapterLabel,
+  onOpenScreenplay,
 }: ScrollFrameProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
   const handleMouseEnter = () => {
-    if (videoSrc) {
-      setIsHovered(true);
-      videoRef.current?.play().catch(() => {});
-    }
+    if (videoSrc) setIsHovered(true);
   };
 
   const handleMouseLeave = () => {
@@ -44,13 +57,36 @@ export function ScrollFrame({
     }
   };
 
+  const handleVideoClick = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      void video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  };
+
   const label = chapterLabel?.trim() ?? "";
   const isChapterStart = Boolean(label);
   const isGrid = layout === "grid";
+  const hasScriptPreview = Boolean(onOpenScreenplay && frame.manuscript.trim().length > 0);
+
+  const handleOpenScreenplay = () => {
+    if (!onOpenScreenplay) return;
+    const rect = imageContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    onOpenScreenplay({
+      frameText: frame.manuscript,
+      originRect: rect,
+      imageSrc: frame.src,
+    });
+  };
 
   return (
     <article
       className="flex w-full min-w-0 flex-col"
+      data-layout={layout}
       {...(typeof frameIndex === "number"
         ? { "data-frame-index": frameIndex, id: `comic-frame-${frameIndex}` }
         : {})}
@@ -75,7 +111,8 @@ export function ScrollFrame({
       ) : null}
 
       <div
-        className="relative w-full overflow-hidden rounded-lg bg-black shadow-[0_0_40px_-8px_rgba(0,0,0,0.08)]"
+        ref={imageContainerRef}
+        className="group relative w-full overflow-hidden rounded-lg bg-black shadow-[0_0_40px_-8px_rgba(0,0,0,0.08)] hover:[&_.frame-script-trigger]:opacity-100"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -91,7 +128,8 @@ export function ScrollFrame({
           <video
             ref={videoRef}
             src={videoSrc}
-            className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
+            onClick={handleVideoClick}
+            className={`absolute inset-0 h-full w-full cursor-pointer object-contain transition-opacity duration-200 ${
               isHovered ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
             muted
@@ -100,18 +138,21 @@ export function ScrollFrame({
             preload="metadata"
           />
         )}
+        {hasScriptPreview ? <FrameScriptTrigger onClick={handleOpenScreenplay} /> : null}
       </div>
 
       {frame.manuscript ? (
-        <p
-          className={`mt-4 w-full text-left leading-relaxed text-white [font-family:var(--font-lora),serif] md:mt-6 ${
-            layout === "grid"
-              ? "text-sm sm:text-base"
-              : "text-base sm:text-lg sm:leading-loose"
-          }`}
-        >
-          {frame.manuscript}
-        </p>
+        isGrid && getManuscriptDisplayLength(frame.manuscript) > GRID_SCROLL_THRESHOLD ? (
+          <div
+            className="grid-manuscript-scroll mt-4 md:mt-6 overflow-y-auto overflow-x-hidden rounded-lg bg-zinc-950/70 shadow-inner text-[12pt] leading-[1.15]"
+            style={{ maxHeight: GRID_SCROLL_MAX_HEIGHT }}
+            aria-label="Manuskript"
+          >
+            <ManuscriptText text={frame.manuscript} className="px-2 py-1.5" />
+          </div>
+        ) : (
+          <ManuscriptText text={frame.manuscript} className="mt-4 md:mt-6" />
+        )
       ) : null}
     </article>
   );

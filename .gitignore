@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Large video assets (GitHub rejects files > 100 MB). Keep these paths locally or host elsewhere.
+public/location/*.mp4
+public/storyboard/**/NOH_FISHINGSTORM_ANIMATICS.mp4
