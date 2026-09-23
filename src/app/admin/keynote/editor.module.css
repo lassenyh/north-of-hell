@@ -1,0 +1,344 @@
+.editor,
+.login {
+  min-height: 100svh;
+  background: #161615;
+  color: #ece8e0;
+  font:
+    14px/1.5 Arial,
+    sans-serif;
+}
+.editor button,
+.login button {
+  border: 1px solid #55554e;
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: #282825;
+  color: inherit;
+  cursor: pointer;
+}
+.editor button:hover,
+.login button:hover {
+  background: #3b3b34;
+}
+.editor button:disabled,
+.login button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.editor :focus-visible,
+.login :focus-visible {
+  outline: 2px solid #f0b77d;
+  outline-offset: 3px;
+}
+.editor input,
+.editor select,
+.login input {
+  width: 100%;
+  border: 1px solid #55554e;
+  border-radius: 5px;
+  padding: 9px;
+  background: #111110;
+  color: inherit;
+}
+.editor label,
+.login label {
+  display: block;
+  margin: 12px 0 6px;
+}
+.topbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid #373731;
+  flex-wrap: wrap;
+}
+.topbar > div {
+  margin-right: auto;
+}
+.topbar p {
+  color: #b0aea2;
+  font-size: 12px;
+}
+.topbar h1 {
+  font-size: 22px;
+}
+.editor .primary {
+  background: #e54425;
+  border-color: #e54425;
+  color: #110805;
+  font-weight: 700;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: 190px minmax(300px, 1fr) 300px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.sidebar,
+.inspector {
+  padding: 20px 16px;
+  background: #1c1c19;
+}
+.sidebar {
+  border-right: 1px solid #373731;
+}
+.inspector {
+  border-left: 1px solid #373731;
+}
+.sectionLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  color: #b0aea2;
+  margin-bottom: 16px;
+}
+.sidebar ol {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  padding: 0;
+}
+.editor .slideButton {
+  width: 100%;
+  padding: 5px;
+  text-align: left;
+  font-size: 11px;
+  background: transparent;
+  border: 2px solid transparent;
+}
+.editor .slideButton[aria-pressed="true"] {
+  border-color: #e54425;
+}
+.slideButton > span:last-child {
+  display: block;
+  padding: 7px 3px 2px;
+}
+.thumb,
+.canvas {
+  display: block;
+  position: relative;
+  container-type: size;
+  aspect-ratio: 16 / 9;
+  background: #e54425 url("/Login-assets/RED%20BG.png") center / cover;
+  color: #080503;
+  overflow: hidden;
+}
+.thumb {
+  width: 100%;
+  pointer-events: none;
+}
+.center {
+  padding: 24px;
+  min-width: 0;
+}
+.canvas {
+  width: 100%;
+  margin: 0 auto;
+  box-shadow: 0 18px 60px #0006;
+}
+.previewToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.previewToolbar label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.previewToolbar select {
+  width: auto;
+}
+.help {
+  color: #aaa89e;
+  font-size: 12px;
+  margin-top: 18px;
+}
+.warning {
+  margin-top: 16px;
+  padding: 12px;
+  background: #50381b;
+  color: #ffe1a8;
+}
+.notice {
+  padding: 12px 24px;
+  background: #383327;
+}
+.notice button {
+  margin: 8px 8px 0 0;
+}
+.add,
+.slideActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.add p {
+  width: 100%;
+}
+.slideActions {
+  border-top: 1px solid #44443d;
+  padding-top: 18px;
+}
+.inspector :global(.tiptap) {
+  min-height: 190px;
+  max-height: 52svh;
+  overflow: auto;
+  padding: 12px;
+  margin-top: 8px;
+  background: #10100f;
+  border: 1px solid #55554e;
+  border-radius: 5px;
+}
+.inspector :global(.tiptap p) {
+  margin-bottom: 12px;
+}
+.inspector :global(.tiptap em) {
+  font-family: Schneider, serif;
+}
+.inspector :global(.tiptap) + p {
+  font-size: 11px;
+  color: #b0aea2;
+}
+.inspector p {
+  margin-bottom: 12px;
+}
+.presentation {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  width: 100vw;
+  height: 100svh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.closePreview {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 110;
+}
+.history {
+  color: #ece8e0;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  position: fixed;
+  inset: 15% max(24px, 20%);
+  z-index: 90;
+  padding: 24px;
+  overflow: auto;
+  background: #242420;
+  border: 1px solid #777;
+  box-shadow: 0 0 0 100vmax #000b;
+}
+.history h2 {
+  font-size: 22px;
+}
+.history li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #555;
+  padding: 12px 0;
+}
+.history > button {
+  margin-top: 16px;
+}
+.login {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.login form {
+  width: min(100%, 400px);
+}
+.login h1 {
+  font-size: 26px;
+  margin: 12px 0;
+}
+.login button {
+  margin-top: 24px;
+}
+.login p {
+  color: #bbb9ad;
+}
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: 150px minmax(220px, 1fr) 260px;
+  }
+  .center {
+    padding: 16px;
+  }
+}
+@media (max-width: 800px) {
+  .workspace {
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+  .inspector {
+    grid-column: 1 / -1;
+  }
+  .topbar {
+    padding: 12px;
+    gap: 8px;
+  }
+  .center {
+    padding: 10px;
+  }
+  .previewToolbar {
+    flex-wrap: wrap;
+  }
+  .history {
+    inset: 8% 16px;
+  }
+}
+
+.history::backdrop,
+.presentation::backdrop {
+  background: #000b;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  overflow: hidden;
+}
+.topbar,
+.notice {
+  flex: none;
+}
+.workspace {
+  flex: 1;
+  min-height: 0;
+}
+.sidebar,
+.center,
+.inspector {
+  overflow-y: auto;
+}
+@media (max-width: 800px) {
+  .editor {
+    height: auto;
+    overflow: visible;
+  }
+  .workspace {
+    min-height: auto;
+  }
+  .sidebar,
+  .center,
+  .inspector {
+    overflow: visible;
+  }
+}

@@ -1,13 +1,40 @@
-/**
- * @deprecated Route protection lives in `src/middleware.ts`.
- * This file is kept only as a reference; it is not imported by the app.
- */
-
+import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // Keynote uses real Supabase Auth; never accept the legacy admin cookie here.
+  if (pathname === "/admin/keynote" || pathname.startsWith("/admin/keynote/")) {
+    let response = NextResponse.next({ request });
+    const url = process.env.KEYNOTE_SUPABASE_URL;
+    const key = process.env.KEYNOTE_SUPABASE_PUBLISHABLE_KEY;
+    if (url && key) {
+      const client = createServerClient(url, key, {
+        cookieOptions: {
+          name: "noh_keynote_session",
+          sameSite: "lax",
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+        },
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: (values) => {
+            values.forEach(({ name, value }) =>
+              request.cookies.set(name, value),
+            );
+            response = NextResponse.next({ request });
+            values.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options),
+            );
+          },
+        },
+      });
+      await client.auth.getUser();
+    }
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+  }
 
   if (
     pathname.startsWith("/login") ||
@@ -30,10 +57,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (
-    !authMain &&
-    (pathname === "/main" || pathname === "/intro")
-  ) {
+  if (!authMain && (pathname === "/main" || pathname === "/intro")) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

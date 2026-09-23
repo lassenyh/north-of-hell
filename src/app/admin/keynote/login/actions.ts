@@ -1,0 +1,33 @@
+"use server";
+import { redirect } from "next/navigation";
+import { keynoteClient, requireEditor } from "@/lib/keynote/server";
+export async function loginEditor(
+  _previous: { error: string },
+  form: FormData,
+) {
+  try {
+    const client = await keynoteClient();
+    const { error } = await client.auth.signInWithPassword({
+      email: String(form.get("email") ?? "").trim(),
+      password: String(form.get("password") ?? ""),
+    });
+    if (error)
+      return { error: "Kunne ikke logge inn. Kontroller e-post og passord." };
+    try {
+      await requireEditor();
+    } catch {
+      await client.auth.signOut();
+      return { error: "Denne brukeren har ikke redaktørtilgang." };
+    }
+  } catch {
+    return {
+      error: "Innlogging er ikke tilgjengelig. Kontakt prosjektansvarlig.",
+    };
+  }
+  redirect("/admin/keynote");
+}
+export async function logoutEditor() {
+  const client = await keynoteClient();
+  await client.auth.signOut();
+  redirect("/admin/keynote/login");
+}

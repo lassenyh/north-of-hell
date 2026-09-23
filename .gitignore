@@ -47,3 +47,11 @@ public/storyboard/**/NOH_FISHINGSTORM_ANIMATICS.mp4
 # Moodfilm files are served from Vercel Blob.
 public/introfilm/NOH MOODFILM_WIP_230926.mp4
 public/introfilm/NOH_MOODFILM_WIP_230926_WEB.mp4
+
+# Isolated keynote verification
+/.next-keynote-test/
+/test-results/
+/playwright-report/
+
+# Supabase CLI local metadata
+/supabase/.temp/
