@@ -1,40 +1,34 @@
 import { NextResponse } from "next/server";
-import { validateLogin } from "@/lib/supabase/auth";
+
+const ACCESS_CODE = process.env.MAIN_SITE_ACCESS_CODE ?? "temp";
 
 export async function POST(request: Request) {
-  let body: { username?: string; password?: string };
+  let body: { code?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { error: "Incorrect username or password." },
+      { error: "Incorrect code." },
       { status: 400 }
     );
   }
 
-  const username = String(body.username ?? "").trim();
-  const password = String(body.password ?? "").trim();
+  const code = String(body.code ?? "").trim();
 
-  if (!username || !password) {
+  if (!code || code !== ACCESS_CODE) {
     return NextResponse.json(
-      { error: "Incorrect username or password." },
-      { status: 401 }
-    );
-  }
-
-  const user = await validateLogin(username, password);
-  if (!user) {
-    return NextResponse.json(
-      { error: "Incorrect username or password." },
+      { error: "Incorrect code." },
       { status: 401 }
     );
   }
 
   const res = NextResponse.json({ ok: true as const });
-  res.cookies.set("noh_auth", user.id, {
+  res.cookies.set("noh_auth", "access-granted", {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 30,
   });
   return res;
 }

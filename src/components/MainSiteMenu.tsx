@@ -22,7 +22,7 @@ export type MainSiteMenuProps = {
 };
 
 /**
- * Toppnivå-navigasjon: Storyboard, Screenplay, Explore location, Characters, Folklore.
+ * Toppnivå-navigasjon: Storyboard, Screenplay og Explore location.
  * Markerer aktiv rute basert på pathname.
  */
 function HomeIcon({ className = "" }: { className?: string }) {
@@ -122,22 +122,6 @@ export function MainSiteMenu({
             {exploreLocationLabel}
           </Link>
         ) : null}
-        <button
-          type="button"
-          className={`${linkBase} ${inactive} cursor-default`}
-          aria-disabled="true"
-          title="Coming soon"
-        >
-          Characters
-        </button>
-        <button
-          type="button"
-          className={`${linkBase} ${inactive} cursor-default`}
-          aria-disabled="true"
-          title="Coming soon"
-        >
-          Folklore
-        </button>
       </div>
     </div>
   );

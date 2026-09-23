@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { MainLandingClient } from "./MainLandingClient";
+import KeynoteClient from "./KeynoteClient";
 
 export const dynamic = "force-dynamic";
 
@@ -11,5 +11,5 @@ export default async function MainLandingPage() {
     redirect("/login");
   }
 
-  return <MainLandingClient />;
+  return <KeynoteClient />;
 }

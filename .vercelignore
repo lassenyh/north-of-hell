@@ -1,0 +1,6 @@
+# Location films are delivered from Vercel Blob, not the deployment bundle.
+public/location/*.mp4
+
+# Moodfilm files are served from Vercel Blob.
+public/introfilm/NOH MOODFILM_WIP_230926.mp4
+public/introfilm/NOH_MOODFILM_WIP_230926_WEB.mp4

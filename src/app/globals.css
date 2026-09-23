@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Schneider";
+  src: url("/Login-assets/SchneiderBuchDeutschItalic.otf") format("opentype");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -30,6 +38,24 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.login-schneider {
+  font-family: "Schneider", serif;
+  font-style: italic;
+}
+
+@keyframes login-alt-two-title-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.login-alt-two-title {
+  animation: login-alt-two-title-in 1s ease-out 250ms both;
 }
 
 /* Admin: brief “saved” affordance after manuscript save */

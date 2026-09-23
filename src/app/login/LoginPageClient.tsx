@@ -1,86 +1,237 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { IntroFilmExperience } from "@/components/intro/IntroFilmExperience";
-import { INTRO_FILM_SRC } from "@/lib/intro-film";
+import { LoginDemoSwitcher } from "@/components/LoginDemoSwitcher";
 import { LoginForm } from "./LoginForm";
 
-export function LoginPageClient() {
+function BackgroundFilm({ blurred = false }: { blurred?: boolean }) {
+  return (
+    <video
+      className={`absolute inset-0 h-full w-full object-cover transition-[filter,transform] duration-[1800ms] ease-out ${
+        blurred ? "scale-[1.04] blur-[12px]" : "scale-100 blur-0"
+      }`}
+      src="/Login-assets/NOH_LOGIN_BG.mov"
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="auto"
+      aria-hidden
+    />
+  );
+}
+
+function LoginAltOne() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [exiting, setExiting] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const timersRef = useRef(new Set<number>());
+  const [revealing, setRevealing] = useState(false);
+  const [takingOver, setTakingOver] = useState(false);
 
   useEffect(() => {
-    const p = searchParams.get("preview");
-    if (p === "1" || p === "true") {
-      setPreviewOpen(true);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!previewOpen) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPreviewOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
+    const timers = timersRef.current;
     return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener("keydown", onKey);
+      timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [previewOpen]);
+  }, []);
 
-  function handleLoginSuccess() {
-    setExiting(true);
-    window.setTimeout(() => {
-      router.push("/intro");
-    }, 500);
+  function handleSuccess() {
+    setRevealing(true);
+    timersRef.current.add(
+      window.setTimeout(() => setTakingOver(true), 3000),
+    );
+    timersRef.current.add(
+      window.setTimeout(() => router.push("/main"), 4800),
+    );
   }
 
   return (
-    <>
+    <main className="relative min-h-[100svh] overflow-hidden bg-black text-white">
+      <BackgroundFilm blurred={!revealing} />
       <div
-        className={`transition-opacity duration-500 ease-out ${
-          exiting ? "pointer-events-none opacity-0" : "opacity-100"
+        className={`absolute inset-0 bg-black transition-opacity duration-[1600ms] ease-out ${
+          revealing ? "opacity-20" : "opacity-35"
+        }`}
+        aria-hidden
+      />
+      <Image
+        src="/Login-assets/RED%20BG.png"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className={`z-[5] object-cover transition-opacity duration-[1800ms] ease-in-out ${
+          takingOver ? "opacity-100" : "opacity-0"
+        }`}
+      />
+
+      <LoginDemoSwitcher
+        active={1}
+        className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6"
+      />
+
+      <section
+        aria-label="Project login"
+        className={`absolute inset-0 z-10 flex items-center justify-center px-5 py-8 transition-[opacity,transform,filter] duration-700 ease-in-out ${
+          revealing
+            ? "pointer-events-none scale-[0.98] blur-sm opacity-0"
+            : "scale-100 opacity-100"
         }`}
       >
-        <div className="min-h-screen bg-black">
-          <div className="mx-auto flex min-h-screen max-w-[1200px] items-center justify-center px-6 sm:px-8 md:px-12 lg:px-16">
-            <div className="w-full max-w-md space-y-8 rounded-3xl border border-zinc-800/70 bg-zinc-950/70 px-8 py-10 shadow-[0_18px_60px_rgba(0,0,0,0.7)]">
-              <header className="text-center">
-                <p className="mb-3 text-xs lowercase tracking-[0.25em] text-zinc-500 sm:text-sm [font-family:var(--font-im-fell-english),serif]">
-                  a film by niels windfeldt
-                </p>
-                <h1 className="text-3xl font-medium uppercase tracking-tight text-[#eaa631] sm:text-[2.35rem] [font-family:var(--font-im-fell-english),serif]">
-                  North of Hell
-                </h1>
-              </header>
-
-              <LoginForm onSuccess={handleLoginSuccess} />
-
-              <p className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setPreviewOpen(true)}
-                  className="text-xs text-zinc-500 underline decoration-zinc-600 underline-offset-4 transition hover:text-zinc-400"
-                >
-                  Preview intro film
-                </button>
-              </p>
+        <div className="relative w-full max-w-[460px] overflow-hidden rounded-[28px] shadow-[0_28px_90px_rgba(0,0,0,0.55)] sm:max-w-[500px]">
+          <Image
+            src="/Login-assets/RED%20BG.png"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 640px) calc(100vw - 40px), 500px"
+            className="scale-[1.012] object-cover"
+          />
+          <div className="relative px-[12%] pb-[10%] pt-[11%] sm:px-[13%] sm:pb-[11%] sm:pt-[12%]">
+            <div className="relative mx-auto aspect-[7419/2500] w-full overflow-hidden">
+              <Image
+                src="/Login-assets/NOH_SMALLTITLE.png"
+                alt="North of Hell — A film by Niels Windfeldt"
+                width={7419}
+                height={3560}
+                priority
+                className="absolute inset-x-0 top-0 h-auto w-full brightness-0"
+              />
             </div>
+            <LoginForm disabled={revealing} onSuccess={handleSuccess} />
           </div>
+        </div>
+      </section>
+
+      <div
+        className={`pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-8 transition-opacity duration-1000 ${
+          revealing ? "opacity-100" : "opacity-0"
+        }`}
+        aria-hidden={!revealing}
+      >
+        <div
+          className={`w-[min(82vw,920px)] transition-[opacity,transform,filter] duration-500 ease-out ${
+            revealing ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+          } ${takingOver ? "brightness-0 !duration-[1800ms]" : ""}`}
+        >
+          <Image
+            src="/Login-assets/NOH_TITLE_C72B1F.png"
+            alt="North of Hell"
+            width={7373}
+            height={1562}
+            className="h-auto w-full drop-shadow-[0_4px_20px_rgba(0,0,0,0.45)]"
+          />
+          <Image
+            src="/Login-assets/NOH_FILM_BY_C72B1F.png"
+            alt="A film by Niels Windfeldt"
+            width={2793}
+            height={134}
+            className={`mx-auto mt-[7.07%] h-auto w-[37.88%] drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)] transition-[opacity,transform] delay-300 duration-500 ease-out ${
+              revealing ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+            }`}
+          />
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function LoginAltTwo() {
+  const router = useRouter();
+  const timersRef = useRef(new Set<number>());
+  const [formHidden, setFormHidden] = useState(false);
+  const [takingOver, setTakingOver] = useState(false);
+
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  function handleSuccess() {
+    setFormHidden(true);
+    timersRef.current.add(
+      window.setTimeout(() => setTakingOver(true), 2000),
+    );
+    timersRef.current.add(
+      window.setTimeout(() => router.push("/main"), 3800),
+    );
+  }
+
+  return (
+    <main className="relative min-h-[100svh] overflow-hidden bg-black text-white">
+      <BackgroundFilm />
+      <div className="absolute inset-0 bg-black/25" aria-hidden />
+      <Image
+        src="/Login-assets/RED%20BG.png"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className={`z-[5] object-cover transition-opacity duration-[1800ms] ease-in-out ${
+          takingOver ? "opacity-100" : "opacity-0"
+        }`}
+      />
+
+      <LoginDemoSwitcher
+        active={2}
+        className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6"
+      />
+
+      <div
+        className={`login-alt-two-title absolute left-1/2 z-10 transition-[top,width,transform] duration-700 ease-in-out ${
+          formHidden
+            ? "top-[calc(50%-min(12.33vw,138.4px))] w-[min(82vw,920px)] -translate-x-1/2"
+            : "top-[29%] w-[min(72vw,760px)] -translate-x-1/2"
+        }`}
+      >
+        <div
+          className={`transition-[filter] duration-[1800ms] ease-in-out ${
+            takingOver ? "brightness-0" : ""
+          }`}
+        >
+          <Image
+            src="/Login-assets/NOH_TITLE_C72B1F.png"
+            alt="North of Hell"
+            width={7373}
+            height={1562}
+            priority
+            className="h-auto w-full drop-shadow-[0_4px_18px_rgba(0,0,0,0.35)]"
+          />
+          <Image
+            src="/Login-assets/NOH_FILM_BY_C72B1F.png"
+            alt="A film by Niels Windfeldt"
+            width={2793}
+            height={134}
+            priority
+            className="mx-auto mt-[7.07%] h-auto w-[37.88%] drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]"
+          />
         </div>
       </div>
 
-      {previewOpen && (
-        <IntroFilmExperience
-          filmSrc={INTRO_FILM_SRC}
-          onFilmEnd={() => setPreviewOpen(false)}
+      <section
+        aria-label="Project login alternative 2"
+        className={`absolute left-1/2 top-[68%] z-10 w-[min(calc(100vw-3rem),320px)] -translate-x-1/2 transition-[opacity,transform,filter] duration-700 ease-in-out ${
+          formHidden
+            ? "pointer-events-none translate-y-16 blur-sm opacity-0"
+            : "translate-y-0 opacity-100"
+        }`}
+      >
+        <LoginForm
+          variant="open"
+          disabled={formHidden}
+          onSuccess={handleSuccess}
         />
-      )}
-    </>
+      </section>
+    </main>
   );
+}
+
+export function LoginPageClient() {
+  const searchParams = useSearchParams();
+  const alternative = searchParams.get("alt") === "2" ? 2 : 1;
+
+  return alternative === 2 ? <LoginAltTwo /> : <LoginAltOne />;
 }
