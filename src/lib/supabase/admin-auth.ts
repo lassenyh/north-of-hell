@@ -1,5 +1,16 @@
-import { createClient } from "./server";
+import "server-only";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createClient as createPublicClient } from "./server";
+import { getAdminSessionId } from "./admin-session";
 import { PROJECT_SLUG } from "./storyboard";
+
+async function createClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.STORYBOARD_SUPABASE_SERVER_KEY;
+  if (url && key) return createSupabaseClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  if (process.env.NODE_ENV === "production") throw new Error("Administrator access is not configured on the server.");
+  return createPublicClient();
+}
 
 export type ProjectAdminLogin = {
   id: string;
@@ -32,8 +43,10 @@ export async function validateAdminLogin(
 }
 
 export async function getAdminLoginById(
-  id: string
+  session: string
 ): Promise<ProjectAdminLogin | null> {
+  const id = getAdminSessionId(session);
+  if (!id) return null;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("project_admin_logins")
