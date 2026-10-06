@@ -25,6 +25,16 @@ export async function validateAdminLogin(
   username: string,
   password: string
 ): Promise<ProjectAdminLogin | null> {
+  if (username.includes("@")) {
+    const authClient = await createPublicClient();
+    const { data: auth, error: signInError } = await authClient.auth.signInWithPassword({
+      email: username,
+      password,
+    });
+    if (signInError || !auth.user) return null;
+    return getAuthorizedAuthUser(auth.user.id, auth.user.email ?? username);
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("project_admin_logins")
@@ -55,8 +65,28 @@ export async function getAdminLoginById(
     .eq("id", id)
     .maybeSingle();
 
+  if (!error && data) return data as ProjectAdminLogin;
+  return getAuthorizedAuthUser(id);
+}
+
+async function getAuthorizedAuthUser(id: string, email?: string): Promise<ProjectAdminLogin | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("project_admin_auth_users")
+    .select("user_id, project_slug, created_at")
+    .eq("project_slug", PROJECT_SLUG)
+    .eq("user_id", id)
+    .maybeSingle();
   if (error || !data) return null;
-  return data as ProjectAdminLogin;
+
+  return {
+    id: data.user_id,
+    project_slug: data.project_slug,
+    username: email ?? "Supabase administrator",
+    password: "",
+    created_at: data.created_at,
+    full_name: null,
+  };
 }
 
 export async function listAdminLogins(): Promise<ProjectAdminLogin[]> {

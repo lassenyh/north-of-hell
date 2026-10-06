@@ -17,10 +17,6 @@ export function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith("/admin/login")) {
-    const authAdminEarly = request.cookies.get("noh_admin_auth")?.value;
-    if (authAdminEarly) {
-      return NextResponse.redirect(new URL("/admin", request.url));
-    }
     return NextResponse.next();
   }
 

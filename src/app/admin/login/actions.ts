@@ -14,7 +14,7 @@ export async function adminLogin(
   formData: FormData
 ): Promise<AdminLoginState> {
   const username = String(formData.get("username") ?? "").trim();
-  const password = String(formData.get("password") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
 
   if (!username || !password) {
     return { error: "Incorrect username or password." };

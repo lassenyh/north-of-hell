@@ -12,14 +12,14 @@ export function AdminLoginForm() {
     <form action={formAction} className="space-y-5">
       <div>
         <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-          Username
+          Email or username
         </label>
         <input
           name="username"
           type="text"
           autoComplete="username"
           className="w-full rounded-2xl border border-zinc-800 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 outline-none ring-0 transition focus:border-[#eaa631] focus:ring-2 focus:ring-[#eaa631]/40"
-          placeholder="username"
+          placeholder="Email or username"
           required
         />
       </div>
