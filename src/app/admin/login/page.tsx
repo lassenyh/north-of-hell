@@ -1,27 +1,52 @@
+import Image from "next/image";
 import { AdminLoginForm } from "./AdminLoginForm";
 
 export const dynamic = "force-dynamic";
 
 export default function AdminLoginPage() {
   return (
-    <div className="min-h-screen bg-black">
-      <div className="mx-auto flex min-h-screen max-w-[1200px] items-center justify-center px-6 sm:px-8 md:px-12 lg:px-16">
-        <div className="w-full max-w-md space-y-8 rounded-3xl border border-zinc-800/70 bg-zinc-950/70 px-8 py-10 shadow-[0_18px_60px_rgba(0,0,0,0.7)]">
-          <header className="text-center">
-            <p className="mb-3 text-xs lowercase tracking-[0.25em] text-zinc-500 sm:text-sm [font-family:var(--font-im-fell-english),serif]">
-              a film by niels windfeldt
-            </p>
-            <h1 className="text-3xl font-medium uppercase tracking-tight text-[#eaa631] sm:text-[2.35rem] [font-family:var(--font-im-fell-english),serif]">
-              North of Hell
-            </h1>
-            <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-zinc-500">
-              Admin · sign in
-            </p>
-          </header>
+    <main className="relative flex min-h-[100svh] items-center justify-center overflow-hidden bg-black px-5 py-8 text-white">
+      <video
+        className="absolute inset-0 h-full w-full scale-[1.04] object-cover blur-[12px]"
+        src="/Login-assets/NOH_LOGIN_BG.mov"
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-black/35" aria-hidden />
 
+      <section
+        aria-label="Admin sign in"
+        className="relative w-full max-w-[460px] overflow-hidden rounded-[28px] shadow-[0_28px_90px_rgba(0,0,0,0.55)] sm:max-w-[500px]"
+      >
+        <Image
+          src="/Login-assets/RED%20BG.png"
+          alt=""
+          fill
+          priority
+          sizes="(max-width: 640px) calc(100vw - 40px), 500px"
+          className="scale-[1.012] object-cover"
+        />
+        <div className="relative px-[12%] pb-[10%] pt-[11%] sm:px-[13%] sm:pb-[11%] sm:pt-[12%]">
+          <div className="relative mx-auto aspect-[7419/2500] w-full overflow-hidden">
+            <Image
+              src="/Login-assets/NOH_SMALLTITLE.png"
+              alt="North of Hell — A film by Niels Windfeldt"
+              width={7419}
+              height={3560}
+              priority
+              className="absolute inset-x-0 top-0 h-auto w-full brightness-0"
+            />
+          </div>
+          <p className="mt-1 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-black/70">
+            Admin access
+          </p>
           <AdminLoginForm />
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
