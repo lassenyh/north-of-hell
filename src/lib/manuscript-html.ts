@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeHtml } from "./safe-html";
 
 const INLINE = ["b", "strong", "i", "em", "u"] as const;
 
@@ -20,7 +20,7 @@ const PURIFY_SCREENPLAY_BLOCK = {
 
 export function sanitizeScreenplayBlockHtml(html: string): string {
   if (!html || html === "<br>") return "";
-  return DOMPurify.sanitize(html, PURIFY_SCREENPLAY_BLOCK).trim();
+  return sanitizeHtml(html, { tags: PURIFY_SCREENPLAY_BLOCK.ALLOWED_TAGS }).trim();
 }
 
 /** Clipboard HTML from Docs / Final Draft / WriterDuet — parsed client-side only */
@@ -53,7 +53,7 @@ const PURIFY_SCREENPLAY_PASTE = {
 
 export function sanitizeScreenplayPasteHtml(html: string): string {
   if (!html?.trim()) return "";
-  return DOMPurify.sanitize(html, PURIFY_SCREENPLAY_PASTE);
+  return sanitizeHtml(html, { tags: PURIFY_SCREENPLAY_PASTE.ALLOWED_TAGS, attributes: PURIFY_SCREENPLAY_PASTE.ALLOWED_ATTR });
 }
 
 const HAS_INLINE_MARKUP = /<\s*\/?\s*(b|strong|i|em|u|br)\b/i;
@@ -66,7 +66,7 @@ function escapeHtmlText(s: string): string {
 /** Safe inline HTML for one manuscript line (storage + display). */
 export function sanitizeManuscriptLine(html: string): string {
   if (!html || html === "<br>") return "";
-  return DOMPurify.sanitize(html, PURIFY_INLINE).trim();
+  return sanitizeHtml(html, { tags: PURIFY_INLINE.ALLOWED_TAGS }).trim();
 }
 
 /** One line → editor innerHTML (legacy plain vs inline HTML). */
@@ -85,7 +85,7 @@ export function lineHasInlineMarkup(line: string): boolean {
 
 /** Clipboard / paste: block structure → later split into lines. */
 export function sanitizePasteRootHtml(html: string): string {
-  return DOMPurify.sanitize(html, PURIFY_PASTE);
+  return sanitizeHtml(html, { tags: PURIFY_PASTE.ALLOWED_TAGS }).trim();
 }
 
 export function manuscriptToEditorHtml(manuscript: string): string {

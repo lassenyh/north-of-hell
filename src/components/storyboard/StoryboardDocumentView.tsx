@@ -1,15 +1,12 @@
 import Image from "next/image";
-import DOMPurify from "isomorphic-dompurify";
 import type { StoryboardDocument, Section } from "@/lib/storyboard/model";
 import { lineToEditorInnerHtml } from "@/lib/manuscript-html";
+import { sanitizeHtml } from "@/lib/safe-html";
 import { ChapterJump } from "./ChapterJump";
 import "./storyboard-document.css";
 
 export function cleanTextHtml(html: string) {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ["p", "h2", "h3", "strong", "b", "em", "i", "u", "s", "ul", "ol", "li", "br", "blockquote"],
-    ALLOWED_ATTR: [],
-  });
+  return sanitizeHtml(html, { tags: ["p", "h2", "h3", "strong", "b", "em", "i", "u", "s", "ul", "ol", "li", "br", "blockquote"] });
 }
 
 export function SectionContent({ section, showEmptyImageSlots = false }: { section: Section; showEmptyImageSlots?: boolean }) {
