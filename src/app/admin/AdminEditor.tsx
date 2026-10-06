@@ -537,6 +537,10 @@ export function AdminEditor({ frames: initialFrames }: Props) {
               <h2 className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">
                 Admin access
               </h2>
+              <p className="mb-4 text-xs leading-relaxed text-zinc-400">
+                Users added in Supabase Authentication can sign in here with their email and password. New Supabase users receive admin access automatically.
+              </p>
+              <h3 className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">Legacy username accounts</h3>
               <form onSubmit={handleCreateAdminUser} className="space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
                   <div className="flex-1">
@@ -589,7 +593,7 @@ export function AdminEditor({ frames: initialFrames }: Props) {
 
           <section className="w-full max-w-[720px] rounded-2xl border border-zinc-800 bg-black/40 px-3.5 py-3">
             <h3 className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">
-              Admin users
+              Legacy admin users
             </h3>
             {loadingAdminLogins && (
               <p className="text-xs text-zinc-500">Loading…</p>
