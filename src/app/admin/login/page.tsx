@@ -1,9 +1,15 @@
 import Image from "next/image";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { getAdminLoginById } from "@/lib/supabase/admin-auth";
 import { AdminLoginForm } from "./AdminLoginForm";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminLoginPage() {
+export default async function AdminLoginPage() {
+  const session = (await cookies()).get("noh_admin_auth")?.value;
+  if (session && (await getAdminLoginById(session))) redirect("/storyboard-studio");
+
   return (
     <main className="relative flex min-h-[100svh] items-center justify-center overflow-hidden bg-black px-5 py-8 text-white">
       <video

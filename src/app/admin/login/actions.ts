@@ -34,5 +34,5 @@ export async function adminLogin(
     maxAge: ADMIN_SESSION_AGE_SECONDS,
   });
 
-  redirect("/admin");
+  redirect("/storyboard-studio");
 }
