@@ -1,6 +1,6 @@
 import DOMPurify from "isomorphic-dompurify";
 
-const INLINE = ["b", "strong", "i", "em"] as const;
+const INLINE = ["b", "strong", "i", "em", "u"] as const;
 
 const PURIFY_INLINE = {
   ALLOWED_TAGS: [...INLINE],
@@ -14,7 +14,7 @@ const PURIFY_PASTE = {
 
 /** Screenplay JSON block `text`: inline formatting + line breaks */
 const PURIFY_SCREENPLAY_BLOCK = {
-  ALLOWED_TAGS: ["b", "strong", "i", "em", "br"],
+  ALLOWED_TAGS: ["b", "strong", "i", "em", "u", "br"],
   ALLOWED_ATTR: [] as string[],
 };
 
@@ -48,7 +48,7 @@ const PURIFY_SCREENPLAY_PASTE = {
     "td",
     "th",
   ],
-  ALLOWED_ATTR: ["style", "class", "align", "data-element"],
+  ALLOWED_ATTR: ["style", "class", "align", "data-element", "data-block-type"],
 };
 
 export function sanitizeScreenplayPasteHtml(html: string): string {
@@ -56,7 +56,7 @@ export function sanitizeScreenplayPasteHtml(html: string): string {
   return DOMPurify.sanitize(html, PURIFY_SCREENPLAY_PASTE);
 }
 
-const HAS_INLINE_MARKUP = /<\s*\/?\s*(b|strong|i|em)\b/i;
+const HAS_INLINE_MARKUP = /<\s*\/?\s*(b|strong|i|em|u|br)\b/i;
 
 /** Kun & og < — `>` må være uendret for Fountain-midtstilling (> …). */
 function escapeHtmlText(s: string): string {
@@ -73,7 +73,7 @@ export function sanitizeManuscriptLine(html: string): string {
 export function lineToEditorInnerHtml(line: string): string {
   if (!line) return "<br>";
   if (HAS_INLINE_MARKUP.test(line)) {
-    const s = sanitizeManuscriptLine(line);
+    const s = sanitizeScreenplayBlockHtml(line);
     return s || "<br>";
   }
   return escapeHtmlText(line) || "<br>";

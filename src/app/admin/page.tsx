@@ -4,6 +4,7 @@
 
 import { getStoryboardFrames } from "@/lib/supabase/storyboard";
 import { AdminEditor } from "./AdminEditor";
+import Link from "next/link";
 import { adminLogout } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,7 @@ export default async function AdminPage() {
           </div>
         </header>
 
+        <div className="mb-8 text-center"><Link href="/admin/storyboard" className="inline-block rounded border border-[#eaa631] px-5 py-3 text-[#eaa631]">Open new storyboard editor →</Link></div>
         <AdminEditor frames={frames} />
       </div>
     </div>

@@ -1,12 +1,12 @@
 /**
  * Paste from Fountain-like plain text, PDF export, Google Docs, WriterDuet-style HTML, tables.
- * Detects scene / action / character / dialogue / parenthetical / transition + bold/italic.
+ * Detects scene / action / character / dialogue / parenthetical / transition + inline emphasis.
  * PDF: normaliserer mellomrom, slår sammen scene-heading delt på to linjer, fjerner sidetall.
  */
 
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import type { ScreenplayBlock, ScreenplayBlockType } from "@/lib/screenplay-json";
+import { isScreenplayBlockType, type ScreenplayBlock, type ScreenplayBlockType } from "@/lib/screenplay-json";
 import { sanitizeScreenplayPasteHtml } from "@/lib/manuscript-html";
 import { blockContentToStorage, storageStringToTipTapContent } from "@/lib/screenplay-inline-html";
 
@@ -77,33 +77,41 @@ function isLikelyPageNumber(line: string): boolean {
 /**
  * Normalize text copied from PDF: collapse spaces, merge split scene headings, drop page numbers.
  */
-function normalizePdfStyleLines(text: string): string[] {
+function normalizePdfStyleLines(text: string): { lines: string[]; indents: number[] } {
   const raw = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  let lines = raw.split("\n").map((line) => line.replace(/\s+/g, " ").trim());
-  lines = lines.filter((line) => !isLikelyPageNumber(line));
+  const source = raw.split("\n").map(line => {
+    let indent = 0;
+    for (const char of line.match(/^[ \t]*/)?.[0] ?? "") indent += char === "\t" ? 8 - indent % 8 : 1;
+    return { text: line.replace(/\s+/g, " ").trim(), indent };
+  }).filter(line => !isLikelyPageNumber(line.text));
 
-  const out: string[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const next = lines[i + 1];
+  const out: { text: string; indent: number }[] = [];
+  for (let i = 0; i < source.length; i++) {
+    const line = source[i];
+    const next = source[i + 1];
     if (
       next != null &&
-      line.length > 0 &&
-      SCENE_STARTS_WITH_DASH_END.test(line) &&
-      SCENE_TIME_SUFFIX.test(next)
+      line.text.length > 0 &&
+      SCENE_STARTS_WITH_DASH_END.test(line.text) &&
+      SCENE_TIME_SUFFIX.test(next.text)
     ) {
-      out.push(`${line} ${next}`);
+      out.push({ text: `${line.text} ${next.text}`, indent: line.indent });
       i += 1;
       continue;
     }
     out.push(line);
   }
-  return out;
+  return { lines: out.map(line => line.text), indents: out.map(line => line.indent) };
 }
 
 /** Fountain / PDF / plain-text screenplay → blocks */
 export function parsePlainTextScreenplay(text: string): ScreenplayBlock[] {
-  const lines = normalizePdfStyleLines(text);
+  const { lines, indents } = normalizePdfStyleLines(text);
+  const hasLayoutIndentation = indents.some(indent => indent >= 12);
+  const isCharacterCueAt = (index: number) =>
+    isCharacterLine(lines[index]) &&
+    (!hasLayoutIndentation || indents[index] >= 18) &&
+    !/[.!?]$/.test(lines[index].trim());
   const blocks: ScreenplayBlock[] = [];
   let i = 0;
   /** True after a CHARACTER line until first dialogue (or new char / scene). */
@@ -145,7 +153,7 @@ export function parsePlainTextScreenplay(text: string): ScreenplayBlock[] {
       continue;
     }
 
-    if (isCharacterLine(T)) {
+    if (isCharacterCueAt(i)) {
       expectingDialogueAfterCharacter = true;
       inDialogue = true;
       blocks.push({ type: "character", text: T });
@@ -159,7 +167,7 @@ export function parsePlainTextScreenplay(text: string): ScreenplayBlock[] {
         const L = lines[i];
         const P = L.trim();
         if (!P) break;
-        if (isSceneHeading(P) || isCharacterLine(P) || isTransition(P)) break;
+        if (isSceneHeading(P) || isCharacterCueAt(i) || isTransition(P)) break;
         if (isParenthetical(P)) {
           if (dlg.length) {
             blocks.push({ type: "dialogue", text: dlg.join("\n") });
@@ -183,7 +191,7 @@ export function parsePlainTextScreenplay(text: string): ScreenplayBlock[] {
       const L = lines[i];
       const P = L.trim();
       if (!P) break;
-      if (isSceneHeading(P) || isCharacterLine(P) || isTransition(P)) break;
+      if (isSceneHeading(P) || isCharacterCueAt(i) || isTransition(P)) break;
       if (isParenthetical(P)) break;
       action.push(trimEndLine(L));
       i += 1;
@@ -197,23 +205,25 @@ export function parsePlainTextScreenplay(text: string): ScreenplayBlock[] {
   return blocks.length ? blocks : [{ type: "action", text: "" }];
 }
 
-function spanBoldItalic(st: string): { bold: boolean; italic: boolean } {
+function spanStyles(st: string): { bold: boolean; italic: boolean; underline: boolean } {
   const s = st.toLowerCase();
   return {
     bold: /font-weight:\s*(bold|[67]00|800|900)/.test(s) || /\bfw-bold\b/.test(s),
     italic: /font-style:\s*italic/.test(s),
+    underline: /text-decoration(?:-line)?:[^;]*underline/.test(s),
   };
 }
 
-/** One block element → storage HTML (strong/em/br) */
+/** One block element → storage HTML (strong/em/u/br) */
 export function elementInnerToStorageHtml(el: HTMLElement): string {
-  function walk(n: Node, bold: boolean, italic: boolean): string {
+  function walk(n: Node, bold: boolean, italic: boolean, underline: boolean): string {
     if (n.nodeType === Node.TEXT_NODE) {
       const t = n.textContent ?? "";
       if (!t) return "";
       let x = esc(t);
       if (italic) x = `<em>${x}</em>`;
       if (bold) x = `<strong>${x}</strong>`;
+      if (underline) x = `<u>${x}</u>`;
       return x;
     }
     if (n.nodeType !== Node.ELEMENT_NODE) return "";
@@ -222,19 +232,22 @@ export function elementInnerToStorageHtml(el: HTMLElement): string {
     if (tag === "br") return "<br>";
     let b = bold;
     let it = italic;
+    let u = underline;
     if (tag === "b" || tag === "strong") b = true;
-    if (tag === "i" || tag === "em" || tag === "u") it = true;
+    if (tag === "i" || tag === "em") it = true;
+    if (tag === "u") u = true;
     if (tag === "span") {
-      const si = spanBoldItalic(e.getAttribute("style") || "");
+      const si = spanStyles(e.getAttribute("style") || "");
       if (si.bold) b = true;
       if (si.italic) it = true;
+      if (si.underline) u = true;
     }
     return Array.from(e.childNodes)
-      .map((c) => walk(c, b, it))
+      .map((c) => walk(c, b, it, u))
       .join("");
   }
   return Array.from(el.childNodes)
-    .map((c) => walk(c, false, false))
+    .map((c) => walk(c, false, false, false))
     .join("")
     .replace(/^(<br>)+|(<br>)+$/g, "")
     .trim();
@@ -244,8 +257,21 @@ function classAndStyleType(
   el: HTMLElement,
   plain: string
 ): ScreenplayBlockType | null {
+  const declared = el.getAttribute("data-block-type") || el.getAttribute("data-element");
+  if (isScreenplayBlockType(declared)) return declared;
   const blob = `${el.className} ${el.getAttribute("style") || ""} ${el.getAttribute("data-element") || ""}`.toLowerCase();
+  if (/\bgeneral\b/.test(blob)) return "general";
   if (/sceneheading|scene-heading|slug|scene_heading/.test(blob)) return "scene_heading";
+  if (/\bcast[_ -]?list\b/.test(blob)) return "cast_list";
+  if (/\bnew[_ -]?act\b/.test(blob)) return "new_act";
+  if (/\bend[_ -]?of[_ -]?act\b/.test(blob)) return "end_of_act";
+  if (/\bsequence\b/.test(blob)) return "sequence";
+  if (/\boutline[_ -]?1\b/.test(blob)) return "outline_1";
+  if (/\boutline[_ -]?2\b/.test(blob)) return "outline_2";
+  if (/\boutline[_ -]?3\b/.test(blob)) return "outline_3";
+  if (/\bsummary\b/.test(blob)) return "summary";
+  if (/\bnote\b/.test(blob)) return "note";
+  if (/\bshot\b/.test(blob)) return "shot";
   if (/character\b/.test(blob) && !/dialogue/.test(blob)) return "character";
   if (/dialogue/.test(blob)) return "dialogue";
   if (/parenthetic/.test(blob)) return "parenthetical";
@@ -327,7 +353,9 @@ export function parseHtmlScreenplay(html: string): ScreenplayBlock[] {
 
   for (const el of elements) {
     const rawInner = el.innerHTML;
+    const declaredType = classAndStyleType(el, (el.textContent || "").trim());
     const splitByBr =
+      !declaredType &&
       /<br\s*\/?>/i.test(rawInner) &&
       !/<\s*p[\s>]/i.test(rawInner) &&
       rawInner.split(/<br\s*\/?>/i).filter((s) => s.replace(/<[^>]+>/g, "").trim()).length >= 2;
@@ -395,8 +423,9 @@ export function parseScreenplayPaste(plain: string, html: string | null): Screen
   const htmlS = html ?? "";
   if (!p.trim() && !htmlS.trim()) return null;
 
+  const explicitHtmlElement = /\bdata-(?:block-type|element)\s*=|\bclass\s*=\s*["'][^"']*(?:scene.?heading|\baction\b|\bcharacter\b|\bdialogue\b|parenthetic|transition|\bshot\b|cast.?list|new.?act|end.?of.?act|\bsequence\b|\bsummary\b|outline.?[123]|\bnote\b|\bgeneral\b)/i.test(htmlS);
   let fromHtml: ScreenplayBlock[] | null = null;
-  if (htmlS.length > 40 && /<[a-z]/i.test(htmlS)) {
+  if (/<(?:p|div|h[1-3]|li|td|th)\b/i.test(htmlS)) {
     try {
       fromHtml = parseHtmlScreenplay(htmlS);
     } catch {
@@ -407,7 +436,9 @@ export function parseScreenplayPaste(plain: string, html: string | null): Screen
   const fromPlain = p.trim() ? parsePlainTextScreenplay(p) : [];
 
   let blocks: ScreenplayBlock[];
-  if (!p.trim() && fromHtml && fromHtml.length >= 2) {
+  if (fromHtml && explicitHtmlElement) {
+    blocks = fromHtml;
+  } else if (!p.trim() && fromHtml && fromHtml.length >= 2) {
     blocks = fromHtml;
   } else if (fromHtml && fromHtml.length >= 2) {
     const dh = typeDiversity(fromHtml);
@@ -421,25 +452,17 @@ export function parseScreenplayPaste(plain: string, html: string | null): Screen
   }
 
   if (!blocks.length) return null;
+  if (explicitHtmlElement && fromHtml?.length) return blocks;
   if (!shouldInterceptPaste(blocks, p || blocks.map((b) => b.text).join("\n"))) return null;
   return blocks;
 }
 
-function findScreenplayDepth($pos: {
-  depth: number;
-  node: (d: number) => { type: { name: string } };
-}): number | null {
-  for (let d = $pos.depth; d > 0; d--) {
-    if ($pos.node(d).type.name === "screenplayBlock") return d;
-  }
-  return null;
-}
-
-function blockIndexAt(doc: PMNode, pos: number): number {
-  let p = 1;
+function blockIndexAt(doc: PMNode, pos: number, edge: "start" | "end"): number {
+  let p = 0;
   for (let i = 0; i < doc.childCount; i++) {
     const n = doc.child(i);
-    if (pos >= p && pos < p + n.nodeSize) return i;
+    const end = p + n.nodeSize;
+    if (pos < end || (edge === "end" && pos === end)) return i;
     p += n.nodeSize;
   }
   return Math.max(0, doc.childCount - 1);
@@ -449,7 +472,7 @@ function blockInnerRange(
   doc: PMNode,
   index: number
 ): { innerStart: number; innerEnd: number } {
-  let p = 1;
+  let p = 0;
   for (let i = 0; i < index; i++) {
     p += doc.child(i).nodeSize;
   }
@@ -476,12 +499,6 @@ export function applyScreenplayPaste(editor: Editor, pasted: ScreenplayBlock[]):
   if (!pasted.length) return false;
   const { state } = editor;
   const { from, to } = state.selection;
-  const $from = state.doc.resolve(from);
-  const $to = state.doc.resolve(to);
-  const d0 = findScreenplayDepth($from);
-  const d1 = findScreenplayDepth($to);
-  if (d0 == null) return false;
-
   const schema = state.schema;
   const existing = docToBlockTexts(editor);
   if (!existing.length) {
@@ -496,8 +513,8 @@ export function applyScreenplayPaste(editor: Editor, pasted: ScreenplayBlock[]):
     return true;
   }
 
-  const i0 = blockIndexAt(state.doc, from);
-  const i1 = d1 != null ? blockIndexAt(state.doc, to) : i0;
+  const i0 = blockIndexAt(state.doc, from, "start");
+  const i1 = from === to ? i0 : blockIndexAt(state.doc, to, "end");
 
   const { innerStart: is0, innerEnd: ie0 } = blockInnerRange(state.doc, i0);
   const { innerStart: is1, innerEnd: ie1 } = blockInnerRange(state.doc, i1);
