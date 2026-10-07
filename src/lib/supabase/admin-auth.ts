@@ -33,22 +33,7 @@ export async function validateAdminLogin(
       password,
     });
     if (signInError || !auth.user) return null;
-    const { data, error } = await authClient
-      .from("project_admin_auth_users")
-      .select("user_id, project_slug, created_at")
-      .eq("project_slug", PROJECT_SLUG)
-      .eq("user_id", auth.user.id)
-      .maybeSingle();
-    if (error || !data) return null;
-    return {
-      id: data.user_id,
-      project_slug: data.project_slug,
-      username: auth.user.email ?? username,
-      password: "",
-      created_at: data.created_at,
-      full_name: null,
-      auth_source: "supabase",
-    };
+    return getAuthorizedAuthUser(auth.user.id, auth.user.email ?? username);
   }
 
   const supabase = await createClient();
@@ -96,7 +81,8 @@ export async function getAdminLoginById(
     .eq("id", id)
     .maybeSingle();
 
-  return !error && data ? data as ProjectAdminLogin : null;
+  if (!error && data) return data as ProjectAdminLogin;
+  return getAuthorizedAuthUser(id);
 }
 
 async function getAuthorizedAuthUser(id: string, email?: string): Promise<ProjectAdminLogin | null> {

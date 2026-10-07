@@ -15,7 +15,7 @@ and one of four types: rich text (`html`, alignment, point size), screenplay
 (`blocks`), images (`layout`, ordered `images`), or comic scroll (`src`, dimensions,
 spacing, background, editable `bubbles` and `sounds`, and an optional published `renderedSrc`). Each image has an ID, source,
 fixed slot number and independent plain text description. The image layouts
-have capacities 1, 4, 6 and 9; all slots are visible in the editor, including
+have capacities 1, 2, 4, 6 and 9; all slots are visible in the editor, including
 empty ones. Older packed image arrays migrate to slots in their saved order.
 Descriptions use Courier but are not screenplay elements.
 Image and screenplay section titles are editor labels and are omitted from the
