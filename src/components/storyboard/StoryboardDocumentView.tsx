@@ -2,7 +2,7 @@ import Image from "next/image";
 import type { StoryboardDocument, Section } from "@/lib/storyboard/model";
 import { lineToEditorInnerHtml } from "@/lib/manuscript-html";
 import { sanitizeHtml } from "@/lib/safe-html";
-import { comicHeight, renderComicSvg } from "@/lib/storyboard/comic-svg";
+import { COMIC_RENDER_VERSION, comicHeight, renderComicSvg } from "@/lib/storyboard/comic-svg";
 import { ChapterJump } from "./ChapterJump";
 import { StoryboardReaderControls } from "./StoryboardReaderControls";
 import "./storyboard-document.css";
@@ -23,7 +23,7 @@ export function SectionContent({ section, showEmptyImageSlots = false }: { secti
       ))}
     </div>
   );
-  if (section.kind === "comic") return section.renderedSrc ? (
+  if (section.kind === "comic") return section.renderedSrc && section.renderVersion === COMIC_RENDER_VERSION ? (
     <div className="storyboard-comic-image"><Image src={section.renderedSrc} alt={section.description || section.title} width={800} height={comicHeight(section)} unoptimized sizes="(max-width: 800px) 100vw, 800px" /></div>
   ) : <div className="storyboard-comic-image" dangerouslySetInnerHTML={{ __html: renderComicSvg(section) }} />;
   const images = [...section.images].sort((a, b) => a.slot - b.slot);

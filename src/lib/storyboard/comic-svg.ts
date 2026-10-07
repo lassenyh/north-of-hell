@@ -1,7 +1,9 @@
 import type { ComicBubble, ComicSection, ComicSound } from "./model";
 
 export const COMIC_WIDTH = 800;
-export const COMIC_RENDER_VERSION = 3;
+export const COMIC_RENDER_VERSION = 4;
+
+export type ComicTextPath = (text: string, centerX: number, baselineY: number, size: number) => string;
 
 export function comicImageHeight(section: ComicSection) {
   if (section.aspect === "16:9") return Math.round(COMIC_WIDTH * 9 / 16);
@@ -137,27 +139,30 @@ export function updateComicSpace(section: ComicSection, side: "above" | "below",
   section.renderedSrc = undefined;
 }
 
-export function renderComicSvg(section: ComicSection, imageHref = section.src, fontData?: string) {
+export function renderComicSvg(section: ComicSection, imageHref = section.src, textPath?: ComicTextPath) {
   const height = comicHeight(section);
   const imageHeight = comicImageHeight(section);
-  const embeddedFont = fontData ? `<style>@font-face{font-family:'Jack Armstrong';src:url(data:font/ttf;base64,${fontData}) format('truetype');font-weight:400}</style>` : "";
   const bubbles = section.bubbles.map(bubble => {
     const text = layoutBubbleText(bubble);
     const lineHeight = text.size * 1.08;
     const firstY = bubble.y + bubble.height * .5 - (text.lines.length - 1) * lineHeight / 2 + text.size * .34;
-    const spans = text.lines.map((line, index) => `<tspan x="${bubble.x + bubble.width / 2}" y="${firstY + index * lineHeight}">${xml(line || " ")}</tspan>`).join("");
+    const lettering = textPath
+      ? text.lines.map((line, index) => `<path d="${textPath(line, bubble.x + bubble.width / 2, firstY + index * lineHeight, text.size)}" fill="#171412"/>`).join("")
+      : `<text fill="#171412" font-family="Jack Armstrong, sans-serif" font-size="${text.size}" font-weight="400" text-anchor="middle">${text.lines.map((line, index) => `<tspan x="${bubble.x + bubble.width / 2}" y="${firstY + index * lineHeight}">${xml(line || " ")}</tspan>`).join("")}</text>`;
     const outline = bubbleOutline(bubble);
     const accents = outline.accents.map(path => `<path d="${path}" fill="none" stroke="#171412" stroke-width="4.8" stroke-linecap="round" opacity=".7"/>`).join("");
-    return `<g data-bubble-id="${xml(bubble.id)}"><path d="${outline.path}" fill="#fff" stroke="#171412" stroke-width="3.4" stroke-linejoin="round"/>${accents}<text fill="#171412" font-family="Jack Armstrong, sans-serif" font-size="${text.size}" font-weight="400" text-anchor="middle">${spans}</text></g>`;
+    return `<g data-bubble-id="${xml(bubble.id)}"><path d="${outline.path}" fill="#fff" stroke="#171412" stroke-width="3.4" stroke-linejoin="round"/>${accents}${lettering}</g>`;
   }).join("");
   const sounds = section.sounds.map(sound => {
     const bounds = soundBounds(sound);
     const lineHeight = sound.fontSize * .94;
     const firstY = -(bounds.lines.length - 1) * lineHeight / 2 + sound.fontSize * .33;
-    const spans = bounds.lines.map((line, index) => `<tspan x="0" y="${Number((firstY + index * lineHeight).toFixed(2))}">${xml(line || " ")}</tspan>`).join("");
     const outlined = sound.outlineEnabled === true;
     const outline = outlined ? ` stroke="${sound.outlineColor || "#ffffff"}" stroke-width="${sound.outlineWidth || 4}" stroke-linejoin="round" paint-order="stroke fill"` : "";
-    return `<g data-sound-id="${xml(sound.id)}" transform="translate(${sound.x} ${sound.y}) rotate(${sound.rotation})"><rect x="${-bounds.width / 2}" y="${-bounds.height / 2}" width="${bounds.width}" height="${bounds.height}" fill="transparent" pointer-events="all"/><text fill="${sound.color}"${outline} font-family="Jack Armstrong, sans-serif" font-size="${sound.fontSize}" text-anchor="middle">${spans}</text></g>`;
+    const lettering = textPath
+      ? bounds.lines.map((line, index) => `<path d="${textPath(line, 0, firstY + index * lineHeight, sound.fontSize)}" fill="${sound.color}"${outline}/>`).join("")
+      : `<text fill="${sound.color}"${outline} font-family="Jack Armstrong, sans-serif" font-size="${sound.fontSize}" text-anchor="middle">${bounds.lines.map((line, index) => `<tspan x="0" y="${Number((firstY + index * lineHeight).toFixed(2))}">${xml(line || " ")}</tspan>`).join("")}</text>`;
+    return `<g data-sound-id="${xml(sound.id)}" transform="translate(${sound.x} ${sound.y}) rotate(${sound.rotation})"><rect x="${-bounds.width / 2}" y="${-bounds.height / 2}" width="${bounds.width}" height="${bounds.height}" fill="transparent" pointer-events="all"/>${lettering}</g>`;
   }).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${COMIC_WIDTH}" height="${height}" viewBox="0 0 ${COMIC_WIDTH} ${height}" role="img" aria-label="${xml(section.description || section.title)}">${embeddedFont}<rect width="800" height="${height}" fill="${section.background}"/>${imageHref ? `<image href="${xml(imageHref)}" x="0" y="${section.topSpace}" width="800" height="${imageHeight}" preserveAspectRatio="${section.aspect ? "xMidYMid slice" : "none"}"/>` : ""}${bubbles}${sounds}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${COMIC_WIDTH}" height="${height}" viewBox="0 0 ${COMIC_WIDTH} ${height}" role="img" aria-label="${xml(section.description || section.title)}"><rect width="800" height="${height}" fill="${section.background}"/>${imageHref ? `<image href="${xml(imageHref)}" x="0" y="${section.topSpace}" width="800" height="${imageHeight}" preserveAspectRatio="${section.aspect ? "xMidYMid slice" : "none"}"/>` : ""}${bubbles}${sounds}</svg>`;
 }

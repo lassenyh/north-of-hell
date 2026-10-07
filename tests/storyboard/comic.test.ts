@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
+import { comicTextPath } from "../../src/lib/storyboard/comic-lettering";
 import { comicHeight, comicImageHeight, fitComicContent, layoutBubbleText, minimumComicSpace, renderComicSvg, updateComicSpace } from "../../src/lib/storyboard/comic-svg";
 import { duplicateChapter, parseDocument, type ComicSection, type StoryboardDocument } from "../../src/lib/storyboard/model";
 
@@ -88,6 +89,25 @@ test("comic dialogue is escaped, text layout reports overflow, and rasterization
   assert.equal(info.format, "webp");
   assert.equal(info.width, 800);
   assert.equal(info.height, 950);
+});
+
+test("published lettering is outlined for both bubbles and sounds before rasterization", async () => {
+  const sample = section();
+  sample.sounds.push({ id: "sound-1", text: "SPLASH", x: 575, y: 330, fontSize: 54, rotation: -12, color: "#ffffff", outlineEnabled: true, outlineColor: "#000000", outlineWidth: 5 });
+  const svg = renderComicSvg(sample, "", comicTextPath);
+  assert.doesNotMatch(svg, /<text\b|<tspan\b|@font-face/);
+  assert.match(svg, /data-bubble-id="bubble-1"[^]*?<path d="M/);
+  assert.match(svg, /data-sound-id="sound-1"[^]*?<path d="M/);
+  const visible = await sharp(Buffer.from(svg)).raw().toBuffer();
+  const empty = structuredClone(sample);
+  empty.bubbles[0].text = "";
+  empty.sounds[0].text = "";
+  const blank = await sharp(Buffer.from(renderComicSvg(empty, "", comicTextPath))).raw().toBuffer();
+  let changed = 0;
+  for (let index = 0; index < visible.length; index += 3) {
+    if (visible[index] !== blank[index] || visible[index + 1] !== blank[index + 1] || visible[index + 2] !== blank[index + 2]) changed++;
+  }
+  assert.ok(changed > 1000, `expected visible lettering in the published image, got ${changed} changed pixels`);
 });
 
 test("comic parser rejects unsafe sources and duplicate bubble IDs", () => {

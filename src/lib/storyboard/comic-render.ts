@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { ComicSection } from "./model";
 import { comicHeight, renderComicSvg } from "./comic-svg";
 import { localStoryboardUpload, storyboardLocalMode } from "./mode";
-import { jackArmstrongFontBase64 } from "./jack-armstrong-font";
+import { comicTextPath } from "./comic-lettering";
 
 async function sourceBytes(src: string) {
   if (src.startsWith("/")) {
@@ -45,7 +45,7 @@ export async function publishComicImage(section: ComicSection) {
   const measured = { ...section, imageWidth: info.width, imageHeight: info.height };
   if (comicHeight(measured) > 8000) throw new Error(`“${section.title}” is too tall to publish as one image. Split it into two comic sections.`);
   const image = await sharp(original).resize({ width: 1600, withoutEnlargement: true }).png().toBuffer();
-  const svg = renderComicSvg(measured, `data:image/png;base64,${image.toString("base64")}`, jackArmstrongFontBase64);
+  const svg = renderComicSvg(measured, `data:image/png;base64,${image.toString("base64")}`, comicTextPath);
   const output = await sharp(Buffer.from(svg), { density: 144 }).webp({ quality: 88, effort: 5 }).toBuffer();
   if (output.length > 10 * 1024 * 1024) throw new Error(`“${section.title}” exceeds the 10 MB published image limit.`);
   const filename = `comic-${crypto.randomUUID()}.webp`;
