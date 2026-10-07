@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { validateAdminLogin } from "@/lib/supabase/admin-auth";
+import { ADMIN_SESSION_AGE_SECONDS, createAdminSession } from "@/lib/supabase/admin-session";
 
 export type AdminLoginState = {
   error?: string;
@@ -13,7 +14,7 @@ export async function adminLogin(
   formData: FormData
 ): Promise<AdminLoginState> {
   const username = String(formData.get("username") ?? "").trim();
-  const password = String(formData.get("password") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
 
   if (!username || !password) {
     return { error: "Incorrect username or password." };
@@ -25,11 +26,13 @@ export async function adminLogin(
   }
 
   const cookieStore = await cookies();
-  cookieStore.set("noh_admin_auth", user.id, {
+  cookieStore.set("noh_admin_auth", createAdminSession(user.id, user.auth_source === "supabase" ? "supabase" : "legacy"), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: ADMIN_SESSION_AGE_SECONDS,
   });
 
-  redirect("/admin");
+  redirect("/storyboard-studio");
 }

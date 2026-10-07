@@ -86,7 +86,7 @@ export function parseDeck(value: unknown, publish = false): Deck {
     value.slides.length > 60 ||
     JSON.stringify(value).length > 500000
   )
-    throw new Error("Ugyldig presentasjon.");
+    throw new Error("Invalid presentation.");
   const ids = new Set<string>();
   for (const s of value.slides) {
     if (
@@ -97,7 +97,7 @@ export function parseDeck(value: unknown, publish = false): Deck {
       !str(s.name, 120) ||
       !(s.name as string).trim()
     )
-      throw new Error("Ugyldig slide eller duplikat-ID.");
+      throw new Error("Invalid slide or duplicate ID.");
     ids.add(s.id);
     if (s.type === "title" && keys(s, ["id", "name", "type"])) continue;
     if (
@@ -116,11 +116,11 @@ export function parseDeck(value: unknown, publish = false): Deck {
       isRichText(s.body)
     )
       continue;
-    throw new Error("Ugyldig slideinnhold.");
+    throw new Error("Invalid slide content.");
   }
   if (publish && (!ids.size || !ids.has(value.startSlideId as string)))
     throw new Error(
-      "Velg en startslide før publisering. Presentasjonen kan ikke være tom.",
+      "Select a starting slide before publishing. The presentation cannot be empty.",
     );
   return value as Deck;
 }

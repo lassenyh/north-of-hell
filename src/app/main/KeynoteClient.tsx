@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { LoginDemoSwitcher } from "@/components/LoginDemoSwitcher";
+import { MainSiteHeader } from "@/components/MainSiteHeader";
 import { SlideCanvas } from "@/components/keynote/SlideCanvas";
 import { SlideView, TitleArtwork } from "@/components/keynote/SlideView";
 import { SEED_DECK, type Deck } from "@/lib/keynote/model";
@@ -15,7 +15,6 @@ export default function KeynoteClient({ deck = SEED_DECK, preview = false }: { d
   const [ready, setReady] = useState(false);
   const fullscreenHintShown = useRef(false);
   const [pulseFullscreen, setPulseFullscreen] = useState(false);
-  const [demosHidden, setDemosHidden] = useState(false);
   const [activeId, setActiveId] = useState(deck.startSlideId);
   const [suppressPreview, setSuppressPreview] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -66,16 +65,7 @@ export default function KeynoteClient({ deck = SEED_DECK, preview = false }: { d
   return (
     <main ref={keynoteRef} tabIndex={-1} className={styles.keynote} aria-label="North of Hell keynote">
       <Image src="/Login-assets/RED%20BG.png" alt="" fill priority sizes="100vw" className={styles.background} />
-      {!preview && <div className="fixed right-4 top-4 z-50 flex items-center gap-2 sm:right-6 sm:top-6">
-        <div id="keynote-login-demos" hidden={demosHidden}><LoginDemoSwitcher active="keynote" /></div>
-        {ready && <button type="button" onClick={() => setDemosHidden((hidden) => !hidden)}
-          aria-label={demosHidden ? "Show login demos" : "Hide login demos"}
-          title={demosHidden ? "Show login demos" : "Hide login demos"}
-          aria-expanded={!demosHidden} aria-controls="keynote-login-demos"
-          className="grid h-9 w-9 place-items-center rounded-full border border-white/20 bg-black/55 text-white/75 backdrop-blur-md transition hover:bg-black/75 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d={demosHidden ? "m14 6-6 6 6 6" : "m10 6 6 6-6 6"} /></svg>
-        </button>}
-      </div>}
+      {!preview && <div className="absolute inset-x-0 top-0 z-40"><MainSiteHeader /></div>}
       <div className={`${styles.title} ${ready ? styles.titleHidden : ""}`} aria-hidden={ready}>
         <TitleArtwork />
       </div>

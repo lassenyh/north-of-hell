@@ -27,7 +27,7 @@ export function ManuscriptText({
     const base =
       "w-full min-w-0 text-white [font-family:var(--font-courier-prime),Courier,monospace]";
     const inlineRich =
-      "[&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic";
+      "[&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_u]:underline";
     return (
       <div className={`screenplay-manuscript-flow ${base} ${className}`}>
         {blocks.map((b, i) => {
@@ -72,7 +72,7 @@ export function ManuscriptText({
       const html = sanitizeManuscriptLine(content) || "\u00a0";
       return (
         <div
-          className={`whitespace-pre-wrap ${align} [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic`}
+          className={`whitespace-pre-wrap ${align} [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_u]:underline`}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       );

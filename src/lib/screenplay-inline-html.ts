@@ -37,13 +37,16 @@ export function blockContentToStorage(node: PMNode): string {
       if (child.marks.some((m) => m.type.name === "bold")) {
         t = `<strong>${t}</strong>`;
       }
+      if (child.marks.some((m) => m.type.name === "underline")) {
+        t = `<u>${t}</u>`;
+      }
       parts.push(t);
     }
   });
   return parts.join("");
 }
 
-const HTMLISH = /<\s*(?:b|strong|i|em|br)\b|<br\s*\/?>/i;
+const HTMLISH = /<\s*(?:b|strong|i|em|u|br)\b|<br\s*\/?>/i;
 
 /** Parse stored `text` into Tiptap inline nodes (client; needs DOM). */
 export function storageStringToTipTapContent(s: string): JSONContent[] {
@@ -70,13 +73,14 @@ export function storageStringToTipTapContent(s: string): JSONContent[] {
 
 function domToTipTapContent(root: HTMLElement): JSONContent[] {
   const out: JSONContent[] = [];
-  function walk(n: Node, bold: boolean, italic: boolean) {
+  function walk(n: Node, bold: boolean, italic: boolean, underline: boolean) {
     if (n.nodeType === Node.TEXT_NODE) {
       const text = n.textContent ?? "";
       if (!text) return;
       const marks: { type: string }[] = [];
       if (bold) marks.push({ type: "bold" });
       if (italic) marks.push({ type: "italic" });
+      if (underline) marks.push({ type: "underline" });
       out.push({
         type: "text",
         text,
@@ -93,8 +97,9 @@ function domToTipTapContent(root: HTMLElement): JSONContent[] {
     }
     const nb = bold || tag === "b" || tag === "strong";
     const ni = italic || tag === "i" || tag === "em";
-    el.childNodes.forEach((c) => walk(c, nb, ni));
+    const nu = underline || tag === "u";
+    el.childNodes.forEach((c) => walk(c, nb, ni, nu));
   }
-  root.childNodes.forEach((c) => walk(c, false, false));
+  root.childNodes.forEach((c) => walk(c, false, false, false));
   return out.length ? out : [{ type: "hardBreak" }];
 }

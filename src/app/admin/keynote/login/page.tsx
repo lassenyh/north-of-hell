@@ -8,14 +8,14 @@ export default function KeynoteLogin() {
     <main className={styles.login}>
       <form action={action}>
         <p>North of Hell · Keynote</p>
-        <h1>Redaktørinnlogging</h1>
-        <p>Bruk e-post og passord for din inviterte redaktørkonto.</p>
+        <h1>Editor sign in</h1>
+        <p>Use the email and password for your invited editor account.</p>
         <label>
-          E-post
+          Email
           <input name="email" type="email" autoComplete="username" required />
         </label>
         <label>
-          Passord
+          Password
           <input
             name="password"
             type="password"
@@ -25,7 +25,7 @@ export default function KeynoteLogin() {
         </label>
         {state.error && <p role="alert">{state.error}</p>}
         <button disabled={pending}>
-          {pending ? "Logger inn …" : "Logg inn"}
+          {pending ? "Signing in …" : "Sign in"}
         </button>
       </form>
     </main>

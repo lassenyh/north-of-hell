@@ -537,6 +537,10 @@ export function AdminEditor({ frames: initialFrames }: Props) {
               <h2 className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">
                 Admin access
               </h2>
+              <p className="mb-4 text-xs leading-relaxed text-zinc-400">
+                Users added in Supabase Authentication can sign in here with their email and password. New Supabase users receive admin access automatically.
+              </p>
+              <h3 className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">Legacy username accounts</h3>
               <form onSubmit={handleCreateAdminUser} className="space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
                   <div className="flex-1">
@@ -589,7 +593,7 @@ export function AdminEditor({ frames: initialFrames }: Props) {
 
           <section className="w-full max-w-[720px] rounded-2xl border border-zinc-800 bg-black/40 px-3.5 py-3">
             <h3 className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-zinc-400">
-              Admin users
+              Legacy admin users
             </h3>
             {loadingAdminLogins && (
               <p className="text-xs text-zinc-500">Loading…</p>
@@ -755,8 +759,6 @@ function AdminFrameRow({
   );
   const [plainDirty, setPlainDirty] = useState(false);
   const plainInitialRef = useRef<string | null>(null);
-  /** Ved switch plain→screenplay: gi editoren riktig JSON før setState har oppdatert. */
-  const pendingScreenplayContentRef = useRef<string | null>(null);
   const label = chapterLabel?.trim() ?? "";
   const isChapterStart = Boolean(label);
   const isGrid = layout === "grid";
@@ -771,16 +773,13 @@ function AdminFrameRow({
         : null;
     setText((prev) => {
       if (contentToUse) {
-        pendingScreenplayContentRef.current = contentToUse;
         return contentToUse;
       }
       if (isScreenplayJsonString(prev)) {
-        pendingScreenplayContentRef.current = prev;
         return prev;
       }
       const blocks = legacyTextToScreenplayBlocks(prev);
       const json = stringifyScreenplayBlocks(blocks);
-      pendingScreenplayContentRef.current = json;
       return json;
     });
     setPlainDirty(false);
@@ -891,24 +890,23 @@ function AdminFrameRow({
                 <kbd className="rounded bg-zinc-800 px-1">⌘5</kbd> parenthetical,{" "}
                 <kbd className="rounded bg-zinc-800 px-1">⌘6</kbd> transition.{" "}
                 <kbd className="rounded bg-zinc-800 px-1">Tab</kbd> cycles
-                character → dialogue → action. Enter etter character → dialogue;
-                etter dialogue → action.{" "}
-                <kbd className="rounded bg-zinc-800 px-1">⇧Enter</kbd> linjeskift i
-                blokken. <strong>Lim inn:</strong> Fountain-lignende tekst eller
-                HTML fra Docs / WriterDuet / tabeller tolkes til blokker (scene,
-                action, karakter, replikk …) og fet/kursiv. Lange utdrag eller
-                tydelig manusstruktur aktiverer lim-inn; enkelt ord/linje limes som
-                vanlig.
+                character → dialogue → action. Enter after character creates
+                dialogue; after dialogue it creates action.{" "}
+                <kbd className="rounded bg-zinc-800 px-1">⇧Enter</kbd> inserts
+                a line break within a block. <strong>Paste:</strong> Fountain-like
+                text or HTML from Docs, WriterDuet, and tables is parsed into
+                screenplay blocks (scene, action, character, dialogue, etc.)
+                with bold and italic formatting. Longer excerpts or clear
+                screenplay structure activate structured paste; a single word
+                or line is pasted normally.
               </p>
               <ScreenplayEditor
                 key={`${frame.id}-screenplay`}
-                initialContent={pendingScreenplayContentRef.current ?? text}
+                initialContent={text}
                 onChange={(next) => {
-                  pendingScreenplayContentRef.current = null;
                   setText(next);
                 }}
                 onReady={() => {
-                  pendingScreenplayContentRef.current = null;
                   setEditorReady(true);
                 }}
                 layout={layout}
@@ -919,8 +917,8 @@ function AdminFrameRow({
           ) : (
             <>
               <p className="mb-1.5 text-[11px] leading-snug text-zinc-500">
-                Enkel riktekst (fet/kursiv, linjeskift). Ingen screenplay-blokker
-                eller spesielle snarveier.
+                Basic rich text (bold, italic, line breaks). No screenplay
+                blocks or special shortcuts.
               </p>
               <ManuscriptRichEditor
                 key={`${frame.id}-plain`}

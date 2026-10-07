@@ -14,6 +14,7 @@ import {
   getAdminLoginById,
   listAdminLogins,
 } from "@/lib/supabase/admin-auth";
+import { getAdminSessionId } from "@/lib/supabase/admin-session";
 
 async function requireAdminSession(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -97,7 +98,7 @@ export async function deleteAdminLogin(id: string) {
     return { ok: false, error: "Missing id" };
   }
   const cookieStore = await cookies();
-  if (cookieStore.get("noh_admin_auth")?.value === id) {
+  if (getAdminSessionId(cookieStore.get("noh_admin_auth")?.value) === id) {
     return {
       ok: false,
       error:

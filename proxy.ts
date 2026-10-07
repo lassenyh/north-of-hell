@@ -51,6 +51,7 @@ export async function proxy(request: NextRequest) {
   const authAdmin = request.cookies.get("noh_admin_auth")?.value;
 
   if (pathname.startsWith("/admin")) {
+    if (pathname.startsWith("/admin/storyboard") && process.env.NODE_ENV !== "production" && process.env.STORYBOARD_REVIEW_MODE === "local") return NextResponse.next();
     if (!authAdmin) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
     }

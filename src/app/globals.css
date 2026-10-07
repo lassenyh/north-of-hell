@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
 @font-face {
+  font-family: "Jack Armstrong";
+  src: url("/fonts/JackArmstrong.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "Schneider";
   src: url("/Login-assets/SchneiderBuchDeutschItalic.otf") format("opentype");
   font-style: italic;
@@ -58,6 +66,7 @@ body {
   animation: login-alt-two-title-in 1s ease-out 250ms both;
 }
 
+
 /* Admin: brief “saved” affordance after manuscript save */
 @keyframes admin-saved-pop {
   0% {
@@ -109,4 +118,27 @@ body {
 }
 .grid-manuscript-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(82, 82, 91, 0.6);
+}
+
+@keyframes admin-login-open {
+  from {
+    opacity: 0;
+    transform: perspective(900px) rotateY(90deg) scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(900px) rotateY(0) scale(1);
+  }
+}
+
+.admin-login-modal[open] {
+  transform-origin: center;
+  backface-visibility: hidden;
+  animation: admin-login-open 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-login-modal[open] {
+    animation: none;
+  }
 }

@@ -145,7 +145,7 @@ export function ComicScrollPage({ frames }: ComicScrollPageProps) {
       <MainSiteHeaderLogo />
       <div className="flex shrink-0 items-center">
         <MainSiteMenu
-          homeHref="/main"
+          homeHref="/main/legacy"
           storyboardHref="/main/storyboard"
           exploreLocationHref="/main/explore-location"
           screenplayHref="/main/screenplay"
@@ -263,4 +263,3 @@ function buildChaptersFromFrames(frames: ComicFrame[]): ChapterInfo[] {
 
   return Array.from(map.values());
 }
-

@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { usePathname, useSelectedLayoutSegments } from "next/navigation";
+import { AdminLoginModal } from "@/components/AdminLoginModal";
 
 const linkBase =
-  "rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] no-underline transition [font-family:var(--font-im-fell-english),serif] sm:px-3.5 sm:py-1.5";
+  "whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] no-underline transition [font-family:var(--font-im-fell-english),serif] sm:px-3.5 sm:py-1.5";
 
 const inactive = "text-zinc-400 hover:text-zinc-100";
 const active = "bg-[#eaa631] font-medium text-black";
 
 export type MainSiteMenuProps = {
   className?: string;
-  /** Lenke til landingside (`/main`). Skjul med `false`. */
+  /** Lenke til landingside (`/main/legacy`). Skjul med `false`. */
   homeHref?: string | false;
+  keynoteHref?: string;
   storyboardHref: string;
   storyboardLabel?: string;
   exploreLocationHref?: string;
@@ -22,7 +24,7 @@ export type MainSiteMenuProps = {
 };
 
 /**
- * Toppnivå-navigasjon: Storyboard, Screenplay og Explore location.
+ * Toppnivå-navigasjon: Storyboard, Screenplay, Explore location og Keynote.
  * Markerer aktiv rute basert på pathname.
  */
 function HomeIcon({ className = "" }: { className?: string }) {
@@ -45,7 +47,8 @@ function HomeIcon({ className = "" }: { className?: string }) {
 
 export function MainSiteMenu({
   className = "",
-  homeHref: homeHrefProp = "/main",
+  homeHref: homeHrefProp = "/main/legacy",
+  keynoteHref = "/main",
   storyboardHref,
   storyboardLabel = "Storyboard",
   exploreLocationHref,
@@ -61,6 +64,7 @@ export function MainSiteMenu({
   const homeNorm = homeHref ? homeHref.replace(/\/$/, "") || "/" : "";
 
   const isHome = Boolean(homeHref && pathNorm === homeNorm);
+  const isKeynote = pathNorm === keynoteHref;
   /** Segment-match (varierer med/uten `main/layout.tsx`) + path-match som fallback. */
   const isStoryboard =
     (Array.isArray(layoutSegments) &&
@@ -69,6 +73,7 @@ export function MainSiteMenu({
           layoutSegments[0] === "storyboard" &&
           pathNorm.startsWith("/main/storyboard")))) ||
     pathNorm === storyNorm ||
+    pathNorm === "/storyboard-studio" ||
     (storyNorm !== "/" && pathNorm.startsWith(`${storyNorm}/`));
 
   const isExplore =
@@ -83,7 +88,7 @@ export function MainSiteMenu({
   }`;
 
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+    <div className={`flex flex-wrap items-center gap-2 sm:mr-48 ${className}`}>
       {homeHref ? (
         <Link
           href={homeHref}
@@ -96,7 +101,7 @@ export function MainSiteMenu({
         </Link>
       ) : null}
       <div
-        className="inline-flex flex-wrap items-center gap-0.5 rounded-full border border-zinc-700 bg-zinc-900/70 p-0.5"
+        className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-0.5 rounded-full border border-zinc-700 bg-zinc-900/70 p-0.5"
         role="navigation"
         aria-label="Main site"
       >
@@ -122,7 +127,15 @@ export function MainSiteMenu({
             {exploreLocationLabel}
           </Link>
         ) : null}
+        <Link
+          href={keynoteHref}
+          className={`${linkBase} ${isKeynote ? active : inactive}`}
+          aria-current={isKeynote ? "page" : undefined}
+        >
+          Keynote
+        </Link>
       </div>
+      <AdminLoginModal />
     </div>
   );
 }

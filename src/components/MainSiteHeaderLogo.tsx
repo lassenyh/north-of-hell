@@ -1,15 +1,20 @@
 import Link from "next/link";
-
-const logoClass =
-  "shrink-0 text-sm font-medium uppercase leading-tight tracking-[0.08em] text-[#eaa631] sm:text-base [font-family:var(--font-im-fell-english),serif]";
+import Image from "next/image";
 
 export function MainSiteHeaderLogo() {
   return (
     <Link
-      href="/main"
-      className={`${logoClass} inline-block rounded-md transition hover:text-[#f1b64f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#eaa631]/50`}
+      href="/main/legacy"
+      aria-label="North of Hell"
+      className="inline-block shrink-0 rounded-md transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
     >
-      North of Hell
+      <Image
+        src="/Login-assets/NOH_TITLE_C72B1F.png"
+        alt=""
+        width={7373}
+        height={1562}
+        className="h-auto w-[150px] brightness-0 invert sm:w-[170px]"
+      />
     </Link>
   );
 }

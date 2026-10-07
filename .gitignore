@@ -50,8 +50,13 @@ public/introfilm/NOH_MOODFILM_WIP_230926_WEB.mp4
 
 # Isolated keynote verification
 /.next-keynote-test/
+/.next-comic-*/
 /test-results/
 /playwright-report/
 
 # Supabase CLI local metadata
 /supabase/.temp/
+
+# Local storyboard review data and uploads
+/.local/
+/public/storyboard-uploads/

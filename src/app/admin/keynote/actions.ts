@@ -11,7 +11,7 @@ export async function saveDraft(
     const client = await requireEditor();
     const draft = parseDeck(document);
     if (!Number.isSafeInteger(version) || version < 1)
-      throw new Error("Ugyldig versjon.");
+      throw new Error("Invalid version.");
     const { data, error } = await client.rpc("keynote_save", {
       project: PROJECT,
       expected_version: version,
@@ -23,14 +23,14 @@ export async function saveDraft(
         conflict: error.code === "40001",
         error:
           error.code === "40001"
-            ? "Kladden er endret i en annen fane. Eksporter dine endringer før du henter siste kladd."
-            : "Lagringen feilet. Prøv igjen; lokale endringer er beholdt.",
+            ? "The draft changed in another tab. Export your changes before loading the latest draft."
+            : "Saving failed. Try again; your local changes were kept.",
       };
     return { ok: true, version: Number(data) };
   } catch (e) {
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "Kunne ikke lagre.",
+      error: e instanceof Error ? e.message : "Could not save.",
     };
   }
 }
@@ -44,10 +44,10 @@ export async function publishDraft(version: number) {
       return {
         ok: false as const,
         error:
-          "Publisering er ikke aktivert i dette miljøet. Kladden er lagret; kontakt prosjektansvarlig.",
+          "Publishing is not enabled in this environment. The draft is saved; contact the project administrator.",
       };
     if (!Number.isSafeInteger(version) || version < 1)
-      throw new Error("Ugyldig versjon.");
+      throw new Error("Invalid version.");
     const { data, error } = await client.rpc("keynote_publish", {
       project: PROJECT,
       expected_version: version,
@@ -58,14 +58,14 @@ export async function publishDraft(version: number) {
         conflict: error.code === "40001",
         error:
           error.code === "40001"
-            ? "Kladden ble endret i en annen fane. Hent siste kladd før publisering."
-            : "Publisering feilet. Kontroller startslide og prøv igjen.",
+            ? "The draft changed in another tab. Load the latest draft before publishing."
+            : "Publishing failed. Check the starting slide and try again.",
       };
     return { ok: true as const, id: String(data) };
   } catch {
     return {
       ok: false as const,
-      error: "Publisering krever redaktørtilgang. Logg inn på nytt.",
+      error: "Publishing requires editor access. Sign in again.",
     };
   }
 }
@@ -77,7 +77,7 @@ export async function listRevisions() {
     .eq("project_slug", PROJECT)
     .order("published_at", { ascending: false })
     .limit(50);
-  if (error) throw new Error("Kunne ikke hente historikken.");
+  if (error) throw new Error("Could not load history.");
   return data as { id: string; published_at: string }[];
 }
 export async function readRevision(id: string) {
@@ -88,6 +88,6 @@ export async function readRevision(id: string) {
     .eq("project_slug", PROJECT)
     .eq("id", id)
     .single();
-  if (error || !data) throw new Error("Kunne ikke hente revisjonen.");
+  if (error || !data) throw new Error("Could not load the revision.");
   return parseDeck(data.document, true);
 }

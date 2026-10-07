@@ -12,16 +12,16 @@ export async function loginEditor(
       password: String(form.get("password") ?? ""),
     });
     if (error)
-      return { error: "Kunne ikke logge inn. Kontroller e-post og passord." };
+      return { error: "Could not sign in. Check your email and password." };
     try {
       await requireEditor();
     } catch {
       await client.auth.signOut();
-      return { error: "Denne brukeren har ikke redaktørtilgang." };
+      return { error: "This user does not have editor access." };
     }
   } catch {
     return {
-      error: "Innlogging er ikke tilgjengelig. Kontakt prosjektansvarlig.",
+      error: "Sign in is unavailable. Contact the project administrator.",
     };
   }
   redirect("/admin/keynote");

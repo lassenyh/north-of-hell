@@ -51,7 +51,7 @@ export class SaveQueue {
             result = {
               ok: false,
               error:
-                "Kunne ikke lagre. Endringene finnes fortsatt i denne fanen.",
+                "Could not save. Your changes are still available in this tab.",
             };
           }
           if (!result.ok) {

@@ -9,7 +9,7 @@ export function keynoteConfig() {
   const key = process.env.KEYNOTE_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key)
     throw new Error(
-      "Keynote-admin er ikke konfigurert. Se docs/KEYNOTE_ADMIN_REVIEW.md.",
+      "Keynote admin is not configured. See docs/KEYNOTE_ADMIN_REVIEW.md.",
     );
   return { url, key };
 }
@@ -44,7 +44,7 @@ export async function requireEditor() {
     error,
   } = await client.auth.getUser();
   if (error || !user || user.is_anonymous)
-    throw new Error("Logg inn som redaktør.");
+    throw new Error("Sign in as an editor.");
   const { data: member, error: memberError } = await client
     .from("keynote_editors")
     .select("user_id")
@@ -52,7 +52,7 @@ export async function requireEditor() {
     .eq("user_id", user.id)
     .maybeSingle();
   if (memberError || !member)
-    throw new Error("Du har ikke redaktørtilgang til dette prosjektet.");
+    throw new Error("You do not have editor access to this project.");
   return client;
 }
 export async function loadEditor() {
@@ -64,7 +64,7 @@ export async function loadEditor() {
     .single();
   if (error || !data)
     throw new Error(
-      "Kunne ikke hente kladden. Kontroller migrasjon og tilgang.",
+      "Could not load the draft. Check the migration and access settings.",
     );
   return {
     document: parseDeck(data.draft),
@@ -76,7 +76,7 @@ export async function publishedDeck() {
   if (process.env.KEYNOTE_PUBLISHED_SOURCE !== "database") return SEED_DECK;
   const { url } = keynoteConfig();
   const key = process.env.KEYNOTE_SUPABASE_SERVER_KEY;
-  if (!key) throw new Error("Publisert keynote mangler serverkonfigurasjon.");
+  if (!key) throw new Error("Published Keynote is missing server configuration.");
   const client = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: {
@@ -89,7 +89,7 @@ export async function publishedDeck() {
     .eq("project_slug", PROJECT)
     .single();
   if (error || !deck?.published_revision_id)
-    throw new Error("Kunne ikke hente publisert keynote.");
+    throw new Error("Could not load the published Keynote.");
   const { data: revision, error: revisionError } = await client
     .from("keynote_revisions")
     .select("document")
@@ -97,6 +97,6 @@ export async function publishedDeck() {
     .eq("project_slug", PROJECT)
     .single();
   if (revisionError || !revision)
-    throw new Error("Kunne ikke hente publisert revisjon.");
+    throw new Error("Could not load the published revision.");
   return parseDeck(revision.document, true);
 }

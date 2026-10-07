@@ -1,5 +1,16 @@
-import { createClient } from "./server";
+import "server-only";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createClient as createPublicClient } from "./server";
+import { getAdminSession } from "./admin-session";
 import { PROJECT_SLUG } from "./storyboard";
+
+async function createClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.STORYBOARD_SUPABASE_SERVER_KEY;
+  if (url && key) return createSupabaseClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  if (process.env.NODE_ENV === "production") throw new Error("Administrator access is not configured on the server.");
+  return createPublicClient();
+}
 
 export type ProjectAdminLogin = {
   id: string;
@@ -8,12 +19,38 @@ export type ProjectAdminLogin = {
   password: string;
   created_at: string;
   full_name: string | null;
+  auth_source?: "supabase";
 };
 
 export async function validateAdminLogin(
   username: string,
   password: string
 ): Promise<ProjectAdminLogin | null> {
+  if (username.includes("@")) {
+    const authClient = await createPublicClient();
+    const { data: auth, error: signInError } = await authClient.auth.signInWithPassword({
+      email: username,
+      password,
+    });
+    if (signInError || !auth.user) return null;
+    const { data, error } = await authClient
+      .from("project_admin_auth_users")
+      .select("user_id, project_slug, created_at")
+      .eq("project_slug", PROJECT_SLUG)
+      .eq("user_id", auth.user.id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return {
+      id: data.user_id,
+      project_slug: data.project_slug,
+      username: auth.user.email ?? username,
+      password: "",
+      created_at: data.created_at,
+      full_name: null,
+      auth_source: "supabase",
+    };
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("project_admin_logins")
@@ -32,8 +69,25 @@ export async function validateAdminLogin(
 }
 
 export async function getAdminLoginById(
-  id: string
+  session: string
 ): Promise<ProjectAdminLogin | null> {
+  const parsed = getAdminSession(session);
+  if (!parsed) return null;
+  const { id, source } = parsed;
+  if (source === "supabase") {
+    if (process.env.NODE_ENV !== "production" && !process.env.STORYBOARD_SUPABASE_SERVER_KEY) {
+      return {
+        id,
+        project_slug: PROJECT_SLUG,
+        username: "Supabase administrator",
+        password: "",
+        created_at: "",
+        full_name: null,
+        auth_source: "supabase",
+      };
+    }
+    return getAuthorizedAuthUser(id);
+  }
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("project_admin_logins")
@@ -42,8 +96,28 @@ export async function getAdminLoginById(
     .eq("id", id)
     .maybeSingle();
 
+  return !error && data ? data as ProjectAdminLogin : null;
+}
+
+async function getAuthorizedAuthUser(id: string, email?: string): Promise<ProjectAdminLogin | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("project_admin_auth_users")
+    .select("user_id, project_slug, created_at")
+    .eq("project_slug", PROJECT_SLUG)
+    .eq("user_id", id)
+    .maybeSingle();
   if (error || !data) return null;
-  return data as ProjectAdminLogin;
+
+  return {
+    id: data.user_id,
+    project_slug: data.project_slug,
+    username: email ?? "Supabase administrator",
+    password: "",
+    created_at: data.created_at,
+    full_name: null,
+    auth_source: "supabase",
+  };
 }
 
 export async function listAdminLogins(): Promise<ProjectAdminLogin[]> {

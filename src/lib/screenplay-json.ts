@@ -10,30 +10,21 @@
  * ]
  */
 
-export type ScreenplayBlockType =
-  | "scene_heading"
-  | "action"
-  | "character"
-  | "parenthetical"
-  | "dialogue"
-  | "transition";
+export const SCREENPLAY_BLOCK_TYPES = [
+  "general", "scene_heading", "action", "character", "parenthetical", "dialogue",
+  "transition", "shot", "cast_list", "new_act", "sequence", "end_of_act",
+  "summary", "outline_1", "outline_2", "outline_3", "note",
+] as const;
+
+export type ScreenplayBlockType = (typeof SCREENPLAY_BLOCK_TYPES)[number];
 
 export type ScreenplayBlock = {
   type: ScreenplayBlockType;
   text: string;
 };
 
-const BLOCK_TYPES: ScreenplayBlockType[] = [
-  "scene_heading",
-  "action",
-  "character",
-  "parenthetical",
-  "dialogue",
-  "transition",
-];
-
-function isBlockType(s: string): s is ScreenplayBlockType {
-  return (BLOCK_TYPES as string[]).includes(s);
+export function isScreenplayBlockType(value: unknown): value is ScreenplayBlockType {
+  return typeof value === "string" && (SCREENPLAY_BLOCK_TYPES as readonly string[]).includes(value);
 }
 
 /** True if string looks like our screenplay JSON array. */
@@ -47,7 +38,7 @@ export function isScreenplayJsonString(raw: string): boolean {
     return (
       typeof first?.type === "string" &&
       typeof first?.text === "string" &&
-      isBlockType(first.type)
+      isScreenplayBlockType(first.type)
     );
   } catch {
     return false;
@@ -73,7 +64,7 @@ export function parseScreenplayBlocks(raw: string): ScreenplayBlock[] {
     for (const item of parsed) {
       if (!item || typeof item !== "object") continue;
       const o = item as Record<string, unknown>;
-      const type = typeof o.type === "string" && isBlockType(o.type) ? o.type : "action";
+      const type = isScreenplayBlockType(o.type) ? o.type : "action";
       const text = typeof o.text === "string" ? o.text : "";
       out.push({ type, text });
     }
@@ -115,10 +106,10 @@ function uppercaseIfPlain(text: string): string {
   return text.toUpperCase();
 }
 
-/** Persist: uppercase scene_heading, character, transition (plain lines only). */
+/** Persist the elements that Final Draft displays in uppercase (plain lines only). */
 export function normalizeBlocksForSave(blocks: ScreenplayBlock[]): ScreenplayBlock[] {
   return blocks.map((b) => {
-    if (b.type === "scene_heading" || b.type === "character" || b.type === "transition") {
+    if (["scene_heading", "character", "transition", "shot", "new_act", "end_of_act", "sequence"].includes(b.type)) {
       return { ...b, text: uppercaseIfPlain(b.text) };
     }
     return { ...b };

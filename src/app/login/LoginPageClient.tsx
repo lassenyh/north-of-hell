@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LoginDemoSwitcher } from "@/components/LoginDemoSwitcher";
+import { MainSiteHeader } from "@/components/MainSiteHeader";
 import { LoginForm } from "./LoginForm";
 
 function BackgroundFilm({ blurred = false }: { blurred?: boolean }) {
@@ -64,11 +64,6 @@ function LoginAltOne() {
         className={`z-[5] object-cover transition-opacity duration-[1800ms] ease-in-out ${
           takingOver ? "opacity-100" : "opacity-0"
         }`}
-      />
-
-      <LoginDemoSwitcher
-        active={1}
-        className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6"
       />
 
       <section
@@ -137,11 +132,12 @@ function LoginAltOne() {
   );
 }
 
-function LoginAltTwo() {
+function LoginAltTwo({ legacyVariant = false }: { legacyVariant?: boolean }) {
   const router = useRouter();
   const timersRef = useRef(new Set<number>());
   const [formHidden, setFormHidden] = useState(false);
   const [takingOver, setTakingOver] = useState(false);
+  const [showHeader, setShowHeader] = useState(false);
 
   useEffect(() => {
     const timers = timersRef.current;
@@ -153,10 +149,13 @@ function LoginAltTwo() {
   function handleSuccess() {
     setFormHidden(true);
     timersRef.current.add(
-      window.setTimeout(() => setTakingOver(true), 2000),
+      window.setTimeout(() => setTakingOver(true), legacyVariant ? 600 : 2000),
+    );
+    if (legacyVariant) timersRef.current.add(
+      window.setTimeout(() => setShowHeader(true), 1200),
     );
     timersRef.current.add(
-      window.setTimeout(() => router.push("/main"), 3800),
+      window.setTimeout(() => router.push(legacyVariant ? "/main/legacy?from=login-alt-3" : "/main"), legacyVariant ? 2400 : 3800),
     );
   }
 
@@ -164,21 +163,22 @@ function LoginAltTwo() {
     <main className="relative min-h-[100svh] overflow-hidden bg-black text-white">
       <BackgroundFilm />
       <div className="absolute inset-0 bg-black/25" aria-hidden />
-      <Image
-        src="/Login-assets/RED%20BG.png"
-        alt=""
-        fill
-        priority
-        sizes="100vw"
-        className={`z-[5] object-cover transition-opacity duration-[1800ms] ease-in-out ${
-          takingOver ? "opacity-100" : "opacity-0"
-        }`}
-      />
+      {legacyVariant ? (
+        <div className={`absolute inset-0 z-[5] bg-black transition-opacity duration-[1200ms] ease-in-out ${takingOver ? "opacity-100" : "opacity-0"}`} aria-hidden />
+      ) : (
+        <Image
+          src="/Login-assets/RED%20BG.png"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className={`z-[5] object-cover transition-opacity duration-[1800ms] ease-in-out ${
+            takingOver ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      )}
 
-      <LoginDemoSwitcher
-        active={2}
-        className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6"
-      />
+      {legacyVariant && <div className={`absolute inset-x-0 top-0 z-40 transition-transform duration-700 ease-out ${showHeader ? "translate-y-0" : "-translate-y-full"}`}><MainSiteHeader /></div>}
 
       <div
         className={`login-alt-two-title absolute left-1/2 z-10 transition-[top,width,transform] duration-700 ease-in-out ${
@@ -189,7 +189,7 @@ function LoginAltTwo() {
       >
         <div
           className={`transition-[filter] duration-[1800ms] ease-in-out ${
-            takingOver ? "brightness-0" : ""
+            takingOver && !legacyVariant ? "brightness-0" : ""
           }`}
         >
           <Image
@@ -212,7 +212,7 @@ function LoginAltTwo() {
       </div>
 
       <section
-        aria-label="Project login alternative 2"
+        aria-label={legacyVariant ? "Project login" : "Project login alternative 2"}
         className={`absolute left-1/2 top-[68%] z-10 w-[min(calc(100vw-3rem),320px)] -translate-x-1/2 transition-[opacity,transform,filter] duration-700 ease-in-out ${
           formHidden
             ? "pointer-events-none translate-y-16 blur-sm opacity-0"
@@ -231,7 +231,7 @@ function LoginAltTwo() {
 
 export function LoginPageClient() {
   const searchParams = useSearchParams();
-  const alternative = searchParams.get("alt") === "2" ? 2 : 1;
+  const alternative = searchParams.get("alt") === "1" ? 1 : searchParams.get("alt") === "2" ? 2 : 3;
 
-  return alternative === 2 ? <LoginAltTwo /> : <LoginAltOne />;
+  return alternative === 1 ? <LoginAltOne /> : <LoginAltTwo legacyVariant={alternative === 3} />;
 }

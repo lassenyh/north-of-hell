@@ -123,12 +123,12 @@ export default function KeynoteEditor({
   function add(layout: "short" | "headed") {
     const newSlide: Slide = {
       id: crypto.randomUUID(),
-      name: layout === "short" ? "Kort tekst" : "Overskrift med tekst",
+      name: layout === "short" ? "Short text" : "Heading and text",
       type: "text",
       layout,
       density: "short",
-      ...(layout === "headed" ? { heading: "Overskrift" } : {}),
-      body: plainTextDoc("Skriv teksten her."),
+      ...(layout === "headed" ? { heading: "Heading" } : {}),
+      body: plainTextDoc("Write your text here."),
     };
     change(insertSlide(deck, selected, newSlide));
     select(newSlide.id);
@@ -138,7 +138,7 @@ export default function KeynoteEditor({
     const copy = {
       ...structuredClone(slide),
       id: crypto.randomUUID(),
-      name: `${slide.name.slice(0, 110)} (kopi)`,
+      name: `${slide.name.slice(0, 110)} (copy)`,
     };
     change(insertSlide(deck, selected, copy));
     select(copy.id);
@@ -168,12 +168,12 @@ export default function KeynoteEditor({
       }
       setMessage(
         result.ok
-          ? "Publisert. Nye åpninger viser denne revisjonen; åpne presentasjoner beholder sitt innhold."
+          ? "Published. New sessions show this revision; presentations already open keep their current content."
           : result.error,
       );
     } catch {
       setMessage(
-        "Publisering ble ikke bekreftet. Hent historikken før du prøver igjen.",
+        "Publication was not confirmed. Check the history before trying again.",
       );
     } finally {
       setBusy(false);
@@ -184,7 +184,7 @@ export default function KeynoteEditor({
     try {
       setRevisions(await listRevisions());
     } catch {
-      setMessage("Kunne ikke hente historikken. Prøv igjen.");
+      setMessage("Could not load history. Try again.");
     } finally {
       setBusy(false);
     }
@@ -199,10 +199,10 @@ export default function KeynoteEditor({
       setRevisions(null);
       if (await queue.flush())
         setMessage(
-          "Revisjonen er gjenopprettet som kladd. Forhåndsvis før du publiserer.",
+          "Revision restored as a draft. Preview it before publishing.",
         );
     } catch {
-      setMessage("Kunne ikke gjenopprette. Kladden er beholdt.");
+      setMessage("Could not restore the revision. The draft was kept.");
     } finally {
       setBusy(false);
     }
@@ -213,23 +213,23 @@ export default function KeynoteEditor({
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = "north-of-hell-kladd.json";
+    a.download = "north-of-hell-draft.json";
     a.click();
     URL.revokeObjectURL(url);
   }
   const status = {
-    saved: "Lagret",
-    dirty: "Ulagrede endringer",
-    saving: "Lagrer …",
-    error: "Ikke lagret",
-    conflict: "Versjonskonflikt",
+    saved: "Saved",
+    dirty: "Unsaved changes",
+    saving: "Saving …",
+    error: "Not saved",
+    conflict: "Version conflict",
   }[queue.status];
   return (
     <main className={styles.editor}>
       {localReview && (
         <p className={styles.notice}>
-          Lokal gjennomgang med eksempeldata. Publisering gjelder bare denne
-          testøkten.
+          Local review with sample data. Publishing applies only to this
+          test session.
         </p>
       )}
       <header className={styles.topbar}>
@@ -239,34 +239,34 @@ export default function KeynoteEditor({
         </div>
         <span role="status">{status}</span>
         <button disabled={!history.length || busy} onClick={undo}>
-          Angre
+          Undo
         </button>
         <button
           disabled={!!publishError || busy}
           onClick={() => setPreview(structuredClone(deck))}
         >
-          Forhåndsvis
+          Preview
         </button>
         <button disabled={busy} onClick={historyPanel}>
-          Historikk
+          History
         </button>
         <button
           className={styles.primary}
           disabled={busy || !!publishError || queue.status === "conflict"}
           onClick={publish}
         >
-          {busy ? "Arbeider …" : "Publiser"}
+          {busy ? "Working …" : "Publish"}
         </button>
         <form
           action={logoutEditor}
           onSubmit={(e) => {
             if (queue.dirty || busy) {
               e.preventDefault();
-              setMessage("Lagre eller eksporter endringene før du logger ut.");
+              setMessage("Save or export your changes before signing out.");
             }
           }}
         >
-          <button>Logg ut</button>
+          <button>Sign out</button>
         </form>
       </header>
       {(queue.error || message || publishError) && (
@@ -274,23 +274,23 @@ export default function KeynoteEditor({
           <p>{queue.error || message || publishError}</p>
           {queue.status === "error" && (
             <button onClick={() => void queue.flush(true)}>
-              Prøv lagring igjen
+              Retry saving
             </button>
           )}
           {(queue.status === "conflict" || queue.status === "error") && (
             <>
-              <button onClick={exportDraft}>Eksporter lokal kladd</button>
+              <button onClick={exportDraft}>Export local draft</button>
               <button
                 onClick={() => {
                   if (
                     window.confirm(
-                      "Lokale endringer blir borte. Har du eksportert dem?",
+                      "Local changes will be lost. Have you exported them?",
                     )
                   )
                     window.location.reload();
                 }}
               >
-                Hent siste kladd
+                Load latest draft
               </button>
             </>
           )}
@@ -331,24 +331,24 @@ export default function KeynoteEditor({
             ))}
           </ol>
           <div className={styles.add}>
-            <p>Ny slide</p>
+            <p>New slide</p>
             <button
               disabled={deck.slides.length >= 60}
               onClick={() => add("short")}
             >
-              Kort tekst
+              Short text
             </button>
             <button
               disabled={deck.slides.length >= 60}
               onClick={() => add("headed")}
             >
-              Overskrift med tekst
+              Heading and text
             </button>
           </div>
         </aside>
-        <section className={styles.center} aria-label="Slideforhåndsvisning">
+        <section className={styles.center} aria-label="Slide preview">
           <div className={styles.previewToolbar}>
-            <p>{slide?.name ?? "Ingen slides"}</p>
+            <p>{slide?.name ?? "No slides"}</p>
             <label>
               Format{" "}
               <select
@@ -357,7 +357,7 @@ export default function KeynoteEditor({
               >
                 <option value="16 / 9">16:9</option>
                 <option value="4 / 3">4:3</option>
-                <option value="9 / 19.5">Mobil</option>
+                <option value="9 / 19.5">Mobile</option>
               </select>
             </label>
           </div>
@@ -386,21 +386,21 @@ export default function KeynoteEditor({
           </div>
           {overflow && (
             <p className={styles.warning} role="alert">
-              Teksten har for liten plass i dette formatet. Kort ned eller
-              fordel den på flere slides. Presentasjonen kan kreve rulling.
+              The text does not fit this format. Shorten it or split it across
+              several slides. The presentation may require scrolling.
             </p>
           )}
           <p className={styles.help}>
-            Klikk på teksten for å redigere. Forhåndsvis starter presentasjonen
-            med intro og navigasjon.
+            Click text to edit it. Preview starts the presentation
+            with its intro and navigation.
           </p>
         </section>
-        <aside className={styles.inspector} aria-label="Rediger slide">
+        <aside className={styles.inspector} aria-label="Edit slide">
           {slide ? (
             <>
-              <p className={styles.sectionLabel}>Rediger slide</p>
+              <p className={styles.sectionLabel}>Edit slide</p>
               <label>
-                Navn
+                Name
                 <input
                   value={slide.name}
                   maxLength={120}
@@ -413,7 +413,7 @@ export default function KeynoteEditor({
                 <>
                   {slide.layout === "headed" && (
                     <label>
-                      Overskrift
+                      Heading
                       <input
                         ref={headingRef}
                         value={slide.heading ?? ""}
@@ -424,7 +424,7 @@ export default function KeynoteEditor({
                       />
                     </label>
                   )}
-                  <label>Tekst</label>
+                  <label>Text</label>
                   <RichTextEditor
                     disabled={busy}
                     key={slide.id}
@@ -436,8 +436,8 @@ export default function KeynoteEditor({
               ) : (
                 <p>
                   {slide.type === "title"
-                    ? "Tittelgrafikken følger presentasjonens design."
-                    : "Filmen bruker eksisterende videofil."}
+                    ? "The title graphic follows the presentation design."
+                    : "The film uses the existing video file."}
                 </p>
               )}
               <div className={styles.slideActions}>
@@ -445,50 +445,50 @@ export default function KeynoteEditor({
                   onClick={() => change({ ...deck, startSlideId: slide.id })}
                   disabled={deck.startSlideId === slide.id}
                 >
-                  Start her
+                  Start here
                 </button>
                 <button
                   onClick={() => change(moveSlide(deck, slide.id, index - 1))}
                   disabled={index === 0}
                 >
-                  Flytt opp
+                  Move up
                 </button>
                 <button
                   onClick={() => change(moveSlide(deck, slide.id, index + 1))}
                   disabled={index === deck.slides.length - 1}
                 >
-                  Flytt ned
+                  Move down
                 </button>
                 <button disabled={deck.slides.length >= 60} onClick={duplicate}>
-                  Dupliser
+                  Duplicate
                 </button>
-                <button onClick={remove}>Fjern fra kladd</button>
+                <button onClick={remove}>Remove from draft</button>
               </div>
             </>
           ) : (
-            <p>Legg til en slide for å begynne.</p>
+            <p>Add a slide to get started.</p>
           )}
         </aside>
       </fieldset>
       {revisions && (
         <EditorDialog
           className={styles.history}
-          label="Publiseringshistorikk"
+          label="Publication history"
           onClose={() => setRevisions(null)}
         >
-          <h2>Publiseringshistorikk</h2>
+          <h2>Publication history</h2>
           <p>
-            En gjenopprettet revisjon blir en ny kladd. Publisert innhold endres
-            først når du publiserer.
+            A restored revision becomes a new draft. Published content changes
+            only when you publish.
           </p>
-          <button onClick={() => setRevisions(null)}>Lukk historikk</button>
+          <button onClick={() => setRevisions(null)}>Close history</button>
           <ul>
             {revisions.map((r, i) => (
               <li key={r.id}>
-                {new Date(r.published_at).toLocaleString("nb-NO")}
-                {i === 0 ? " · Nyeste" : ""}
+                {new Date(r.published_at).toLocaleString("en-US")}
+                {i === 0 ? " · Latest" : ""}
                 <button disabled={busy} onClick={() => restore(r.id)}>
-                  Gjenopprett som kladd
+                  Restore as draft
                 </button>
               </li>
             ))}
@@ -498,7 +498,7 @@ export default function KeynoteEditor({
       {preview && (
         <EditorDialog
           className={styles.presentation}
-          label="Forhåndsvis presentasjon"
+          label="Preview presentation"
           onClose={() => setPreview(null)}
         >
           <KeynoteClient deck={preview} preview />
@@ -506,7 +506,7 @@ export default function KeynoteEditor({
             className={styles.closePreview}
             onClick={() => setPreview(null)}
           >
-            Tilbake til redigering
+            Back to editing
           </button>
         </EditorDialog>
       )}

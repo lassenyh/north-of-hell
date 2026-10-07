@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "extract:screenplay": "node scripts/extract-screenplay-text.mjs",
     "test:keynote": "node --import tsx --test tests/keynote/core.test.ts",
+    "test:storyboard": "node --import tsx --test tests/storyboard/*.test.ts",
     "test:keynote:browser": "playwright test --config playwright.keynote.config.ts",
     "keynote:review": "node scripts/keynote-review.mjs"
   },
@@ -22,10 +23,12 @@
     "framer-motion": "^12.38.0",
     "isomorphic-dompurify": "^3.5.1",
     "next": "16.1.6",
+    "parse5": "8.0.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.5.207",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

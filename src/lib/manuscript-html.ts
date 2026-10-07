@@ -1,6 +1,6 @@
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeHtml } from "./safe-html";
 
-const INLINE = ["b", "strong", "i", "em"] as const;
+const INLINE = ["b", "strong", "i", "em", "u"] as const;
 
 const PURIFY_INLINE = {
   ALLOWED_TAGS: [...INLINE],
@@ -14,13 +14,13 @@ const PURIFY_PASTE = {
 
 /** Screenplay JSON block `text`: inline formatting + line breaks */
 const PURIFY_SCREENPLAY_BLOCK = {
-  ALLOWED_TAGS: ["b", "strong", "i", "em", "br"],
+  ALLOWED_TAGS: ["b", "strong", "i", "em", "u", "br"],
   ALLOWED_ATTR: [] as string[],
 };
 
 export function sanitizeScreenplayBlockHtml(html: string): string {
   if (!html || html === "<br>") return "";
-  return DOMPurify.sanitize(html, PURIFY_SCREENPLAY_BLOCK).trim();
+  return sanitizeHtml(html, { tags: PURIFY_SCREENPLAY_BLOCK.ALLOWED_TAGS }).trim();
 }
 
 /** Clipboard HTML from Docs / Final Draft / WriterDuet — parsed client-side only */
@@ -48,15 +48,15 @@ const PURIFY_SCREENPLAY_PASTE = {
     "td",
     "th",
   ],
-  ALLOWED_ATTR: ["style", "class", "align", "data-element"],
+  ALLOWED_ATTR: ["style", "class", "align", "data-element", "data-block-type"],
 };
 
 export function sanitizeScreenplayPasteHtml(html: string): string {
   if (!html?.trim()) return "";
-  return DOMPurify.sanitize(html, PURIFY_SCREENPLAY_PASTE);
+  return sanitizeHtml(html, { tags: PURIFY_SCREENPLAY_PASTE.ALLOWED_TAGS, attributes: PURIFY_SCREENPLAY_PASTE.ALLOWED_ATTR });
 }
 
-const HAS_INLINE_MARKUP = /<\s*\/?\s*(b|strong|i|em)\b/i;
+const HAS_INLINE_MARKUP = /<\s*\/?\s*(b|strong|i|em|u|br)\b/i;
 
 /** Kun & og < — `>` må være uendret for Fountain-midtstilling (> …). */
 function escapeHtmlText(s: string): string {
@@ -66,14 +66,14 @@ function escapeHtmlText(s: string): string {
 /** Safe inline HTML for one manuscript line (storage + display). */
 export function sanitizeManuscriptLine(html: string): string {
   if (!html || html === "<br>") return "";
-  return DOMPurify.sanitize(html, PURIFY_INLINE).trim();
+  return sanitizeHtml(html, { tags: PURIFY_INLINE.ALLOWED_TAGS }).trim();
 }
 
 /** One line → editor innerHTML (legacy plain vs inline HTML). */
 export function lineToEditorInnerHtml(line: string): string {
   if (!line) return "<br>";
   if (HAS_INLINE_MARKUP.test(line)) {
-    const s = sanitizeManuscriptLine(line);
+    const s = sanitizeScreenplayBlockHtml(line);
     return s || "<br>";
   }
   return escapeHtmlText(line) || "<br>";
@@ -85,7 +85,7 @@ export function lineHasInlineMarkup(line: string): boolean {
 
 /** Clipboard / paste: block structure → later split into lines. */
 export function sanitizePasteRootHtml(html: string): string {
-  return DOMPurify.sanitize(html, PURIFY_PASTE);
+  return sanitizeHtml(html, { tags: PURIFY_PASTE.ALLOWED_TAGS }).trim();
 }
 
 export function manuscriptToEditorHtml(manuscript: string): string {

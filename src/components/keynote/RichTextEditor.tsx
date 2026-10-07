@@ -47,7 +47,7 @@ export default function RichTextEditor({
     editorProps: {
       attributes: {
         role: "textbox",
-        "aria-label": "Slidetekst",
+        "aria-label": "Slide text",
         "aria-multiline": "true",
       },
       // Plain clipboard data retains paragraph boundaries without importing Word/Docs styles.
@@ -79,12 +79,12 @@ export default function RichTextEditor({
         onClick={() => editor?.chain().focus().toggleMark("emphasis").run()}
         disabled={!editor || disabled}
       >
-        Fremhev
+        Emphasize
       </button>
       <EditorContent editor={editor} />
       <p>
-        Marker ord og velg Fremhev. Enter gir avsnitt; Shift+Enter gir
-        linjeskift.
+        Select words and choose Emphasize. Enter starts a paragraph;
+        Shift+Enter inserts a line break.
       </p>
     </div>
   );

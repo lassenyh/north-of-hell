@@ -4,11 +4,17 @@
 
 import { getStoryboardFrames } from "@/lib/supabase/storyboard";
 import { AdminEditor } from "./AdminEditor";
+import Link from "next/link";
 import { adminLogout } from "./actions";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { getAdminLoginById } from "@/lib/supabase/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
+  const session = (await cookies()).get("noh_admin_auth")?.value;
+  if (!session || !(await getAdminLoginById(session))) redirect("/admin/login");
   const frames = await getStoryboardFrames();
 
   return (
@@ -36,6 +42,7 @@ export default async function AdminPage() {
           </div>
         </header>
 
+        <div className="mb-8 text-center"><Link href="/admin/storyboard" className="inline-block rounded border border-[#eaa631] px-5 py-3 text-[#eaa631]">Open new storyboard editor →</Link></div>
         <AdminEditor frames={frames} />
       </div>
     </div>
