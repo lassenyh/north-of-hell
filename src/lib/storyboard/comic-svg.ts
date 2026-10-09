@@ -1,7 +1,7 @@
 import type { ComicBubble, ComicSection, ComicSound } from "./model";
 
 export const COMIC_WIDTH = 800;
-export const COMIC_RENDER_VERSION = 4;
+export const COMIC_RENDER_VERSION = 5;
 
 export type ComicTextPath = (text: string, centerX: number, baselineY: number, size: number) => string;
 

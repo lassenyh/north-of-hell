@@ -110,6 +110,22 @@ test("published lettering is outlined for both bubbles and sounds before rasteri
   assert.ok(changed > 1000, `expected visible lettering in the published image, got ${changed} changed pixels`);
 });
 
+test("published lettering keeps every glyph in Hold my beer", async () => {
+  const sample = section();
+  sample.bubbles[0] = {
+    id: "ced2f5a2-8e9d-4f6b-9c9d-f256b3a34ea5", text: "Hold my beer!",
+    x: 0, y: 571, width: 400, height: 155, tailSide: "top",
+    tailX: 278, tailY: 532, fontSize: 36,
+  };
+  const svg = renderComicSvg(sample, "", comicTextPath);
+  assert.deepEqual(layoutBubbleText(sample.bubbles[0]).lines, ["HOLD MY", "BEER!"]);
+  assert.doesNotMatch(svg, /NaN|Infinity/);
+  const complete = await sharp(Buffer.from(svg)).raw().toBuffer();
+  sample.bubbles[0].text = "Hold my B";
+  const truncated = await sharp(Buffer.from(renderComicSvg(sample, "", comicTextPath))).raw().toBuffer();
+  assert.notDeepEqual(complete, truncated);
+});
+
 test("comic parser rejects unsafe sources and duplicate bubble IDs", () => {
   const doc = { schemaVersion: 1, title: "Story", chapters: [{ id: "chapter-1", title: "Opening", sections: [section()] }] };
   doc.chapters[0].sections[0].src = "https://evil.example/test.png";
