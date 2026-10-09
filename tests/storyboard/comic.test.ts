@@ -91,6 +91,21 @@ test("comic dialogue is escaped, text layout reports overflow, and rasterization
   assert.equal(info.height, 950);
 });
 
+test("full-width rectangular comic text survives parsing and published rendering", async () => {
+  const sample = section();
+  sample.bubbles.push({ id: "text-above", shape: "rectangle", text: "Before the storm", x: 0, y: 16, width: 800, height: 140, tailSide: "none", tailX: 400, tailY: 86, fontSize: 36 });
+  sample.bubbles.push({ id: "text-below", shape: "rectangle", text: "After the storm", x: 0, y: 706, width: 800, height: 140, tailSide: "none", tailX: 400, tailY: 776, fontSize: 36 });
+  const doc: StoryboardDocument = { schemaVersion: 1, title: "Story", chapters: [{ id: "chapter-1", title: "Opening", sections: [sample] }] };
+  assert.deepEqual(parseDocument(doc), doc);
+  const svg = renderComicSvg(sample, "", comicTextPath);
+  assert.match(svg, /data-bubble-id="text-above"><rect x="1\.7" y="17\.7" width="796\.6" height="136\.6"/);
+  assert.match(svg, /data-bubble-id="text-below"><rect x="1\.7" y="707\.7" width="796\.6" height="136\.6"/);
+  assert.doesNotMatch(svg, /<text\b|<tspan\b/);
+  assert.equal(layoutBubbleText(sample.bubbles[1]).fits, true);
+  const image = await sharp(Buffer.from(svg)).png().toBuffer();
+  assert.equal((await sharp(image).metadata()).width, 800);
+});
+
 test("published lettering is outlined for both bubbles and sounds before rasterization", async () => {
   const sample = section();
   sample.sounds.push({ id: "sound-1", text: "SPLASH", x: 575, y: 330, fontSize: 54, rotation: -12, color: "#ffffff", outlineEnabled: true, outlineColor: "#000000", outlineWidth: 5 });

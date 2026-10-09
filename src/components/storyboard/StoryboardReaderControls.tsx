@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { ChapterJump } from "./ChapterJump";
-import { useStoryboardTheme } from "./StoryboardTheme";
 
 export function StoryboardReaderControls({ chapters }: { chapters: { id: string; title: string }[] }) {
   const [fullscreen, setFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState("");
-  const { theme, toggleTheme } = useStoryboardTheme();
 
   useEffect(() => {
     const syncFullscreen = () => setFullscreen(document.fullscreenElement === document.documentElement);
@@ -27,7 +25,6 @@ export function StoryboardReaderControls({ chapters }: { chapters: { id: string;
 
   return (
     <div className="storyboard-reader-controls">
-      <button type="button" className="storyboard-theme-button" onClick={toggleTheme} aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} title={theme === "light" ? "Dark mode" : "Light mode"} aria-pressed={theme === "light"}>{theme === "light" ? "☀" : "☾"}</button>
       <button
         type="button"
         className="storyboard-fullscreen-button"

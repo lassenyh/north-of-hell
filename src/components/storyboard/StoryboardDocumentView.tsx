@@ -11,7 +11,7 @@ export function cleanTextHtml(html: string) {
   return sanitizeHtml(html, { tags: ["p", "h2", "h3", "strong", "b", "em", "i", "u", "s", "ul", "ol", "li", "br", "blockquote"] });
 }
 
-export function SectionContent({ section, showEmptyImageSlots = false }: { section: Section; showEmptyImageSlots?: boolean }) {
+export function SectionContent({ section, showEmptyImageSlots = false, preferSourceComic = false }: { section: Section; showEmptyImageSlots?: boolean; preferSourceComic?: boolean }) {
   if (section.kind === "text") return (
     <div className="storyboard-prose" style={{ textAlign: section.align, fontSize: `${section.size}px` }}
       dangerouslySetInnerHTML={{ __html: cleanTextHtml(section.html) }} />
@@ -23,7 +23,7 @@ export function SectionContent({ section, showEmptyImageSlots = false }: { secti
       ))}
     </div>
   );
-  if (section.kind === "comic") return section.renderedSrc && section.renderVersion === COMIC_RENDER_VERSION ? (
+  if (section.kind === "comic") return !preferSourceComic && section.renderedSrc && section.renderVersion === COMIC_RENDER_VERSION ? (
     <div className="storyboard-comic-image"><Image src={section.renderedSrc} alt={section.description || section.title} width={800} height={comicHeight(section)} unoptimized sizes="(max-width: 800px) 100vw, 800px" /></div>
   ) : <div className="storyboard-comic-image" dangerouslySetInnerHTML={{ __html: renderComicSvg(section) }} />;
   const images = [...section.images].sort((a, b) => a.slot - b.slot);
@@ -43,11 +43,11 @@ export function SectionContent({ section, showEmptyImageSlots = false }: { secti
   );
 }
 
-export function StoryboardDocumentView({ document, floatingChapterJump = false }: { document: StoryboardDocument; floatingChapterJump?: boolean }) {
+export function StoryboardDocumentView({ document, floatingChapterJump = false, preview = false }: { document: StoryboardDocument; floatingChapterJump?: boolean; preview?: boolean }) {
   const chapters = document.chapters.map(chapter => ({ id: chapter.id, title: chapter.title }));
 
   return (
-    <main className={`storyboard-document ${floatingChapterJump ? "storyboard-reader" : ""}`} aria-label="Published storyboard">
+    <main className={`storyboard-document ${floatingChapterJump ? "storyboard-reader" : ""}`} aria-label={preview ? "Draft preview" : "Published storyboard"}>
       {floatingChapterJump && <StoryboardReaderControls chapters={chapters} />}
       <header className="storyboard-document-header"><h1>{document.title}</h1></header>
       {!floatingChapterJump && <ChapterJump chapters={chapters} />}
@@ -57,7 +57,7 @@ export function StoryboardDocumentView({ document, floatingChapterJump = false }
           {chapter.sections.filter(section => section.kind === "images" ? section.images.length > 0 : section.kind === "comic" ? !!section.src : true).map(section => (
             <section key={section.id} id={`section-${section.id}`} className={`storyboard-section storyboard-section--${section.kind}`}>
               {section.kind === "text" && <h3>{section.title}</h3>}
-              <SectionContent section={section} />
+              <SectionContent section={section} preferSourceComic={preview} />
             </section>
           ))}
         </article>

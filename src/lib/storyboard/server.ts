@@ -104,8 +104,9 @@ export async function publishStoryboardDraft(expectedVersion: number) {
   const now = new Date().toISOString();
   const published = structuredClone(state.draft);
   for (const chapter of published.chapters) for (const section of chapter.sections) {
-    if (section.kind !== "comic") continue;
-    if (section.bubbles.some(bubble => !layoutBubbleText(bubble).fits)) throw new Error(`Text does not fit a bubble in “${section.title}”. Enlarge it or shorten the dialogue.`);
+    if (section.kind !== "comic" || !section.src) continue;
+    const overflowing = section.bubbles.find(bubble => !layoutBubbleText(bubble).fits);
+    if (overflowing) throw new Error(`Text does not fit a ${overflowing.shape === "rectangle" ? "text panel" : "bubble"} in “${section.title}”. Enlarge it or shorten the text.`);
     const previous = state.published?.chapters.flatMap(item => item.sections).find(item => item.id === section.id);
     if (previous?.kind === "comic" && previous.renderedSrc && previous.renderVersion === COMIC_RENDER_VERSION) {
       const oldContent = { ...previous, renderedSrc: undefined, renderVersion: undefined };

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -15,7 +15,7 @@ import { StoryboardLibraryDialog } from "./StoryboardLibraryDialog";
 import { StoryboardLibraryUpload } from "./StoryboardLibraryUpload";
 import { libraryChapter as libraryChapterOf } from "@/lib/storyboard/library-chapter";
 import { COMIC_RENDER_VERSION } from "@/lib/storyboard/comic-svg";
-import { StoryboardTheme, useStoryboardTheme } from "./StoryboardTheme";
+import { StoryboardTheme } from "./StoryboardTheme";
 import { duplicateChapter, duplicateSection, moveImageToSlot, newId, putImageInSlot, type Chapter, type Section, type StoryboardDocument, type StoryboardState } from "@/lib/storyboard/model";
 import { saveDraftAction, publishDraftAction } from "@/app/admin/storyboard/actions";
 import "./storyboard-editor.css";
@@ -25,10 +25,18 @@ const capacity = { single: 1, "1x2": 2, "2x2": 4, "2x3": 6, "3x3": 9 } as const;
 const sectionNames = { text: "Regular text", screenplay: "Screenplay", images: "Images", comic: "Comic scroll" } as const;
 const libraryNameSort = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const libraryFilename = (src: string) => decodeURIComponent(src.split("/").at(-1) || "Frame").replace(/^[0-9]+-[0-9a-f-]{36}-/, "");
+const AUTO_SAVE_IDLE_MS = 2 * 60 * 1000;
+const SAVE_TIMEOUT_MS = 30 * 1000;
 
 function sectionExcerpt(section: Section) {
   const source = section.kind === "text" ? section.html : section.kind === "screenplay" ? section.blocks.find(block => block.text.trim())?.text || "" : "";
   return source.replace(/<[^>]*>/g, " ").replace(/&nbsp;|&#160;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/\s+/g, " ").trim();
+}
+
+function comicSummary(section: Extract<Section, { kind: "comic" }>) {
+  const textCount = section.bubbles.filter(bubble => bubble.shape === "rectangle").length;
+  const bubbleCount = section.bubbles.length - textCount;
+  return `${bubbleCount} ${bubbleCount === 1 ? "bubble" : "bubbles"}${textCount ? ` · ${textCount} ${textCount === 1 ? "text panel" : "text panels"}` : ""} · ${section.sounds.length} ${section.sounds.length === 1 ? "sound effect" : "sound effects"}`;
 }
 
 function RichTextEditor({ html, onChange, onFocus }: { html: string; onChange: (html: string) => void; onFocus: (editor: Editor) => void }) {
@@ -52,18 +60,23 @@ export default function StoryboardEditor(props: { initial: StoryboardState; libr
 }
 
 function StoryboardEditorContent({ initial, library: initialLibrary, libraryChapters: initialLibraryChapters, hiddenLibrary: initialHiddenLibrary }: { initial: StoryboardState; library: string[]; libraryChapters: string[]; hiddenLibrary: string[] }) {
-  const { theme, toggleTheme } = useStoryboardTheme();
-  const [tab, setTab] = useState<"finished" | "editor">("editor");
+  const [tab, setTab] = useState<"preview" | "editor">("editor");
   const [document, setDocument] = useState(initial.draft);
   const [published, setPublished] = useState(initial.published);
   const [version, setVersion] = useState(initial.draftVersion);
   const [publishedVersion, setPublishedVersion] = useState(initial.publishedVersion);
-  const [publishedAt, setPublishedAt] = useState(initial.publishedAt);
   const [savedJson, setSavedJson] = useState(JSON.stringify(initial.draft));
   const [busy, setBusy] = useState<"save" | "publish" | null>(null);
+  const [savePending, setSavePending] = useState(false);
   const [error, setError] = useState("");
   const [flash, setFlash] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const editorScrollY = useRef(0);
+  const layerScrollY = useRef(0);
+  const previewTargetId = useRef<string | null>(null);
+  const pendingViewSwitch = useRef<"preview" | "editor" | null>(null);
+  const saveRequest = useRef<Promise<Awaited<ReturnType<typeof saveDraftAction>>> | null>(null);
+  const saveRef = useRef<((automatic?: boolean) => Promise<void>) | null>(null);
   const [expandedChapters, setExpandedChapters] = useState<string[]>([]);
   const [textEditor, setTextEditor] = useState<Editor | null>(null);
   const [manusEditor, setManusEditor] = useState<Editor | null>(null);
@@ -129,11 +142,57 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
   useEffect(() => {
+    if (!dirty || busy || savePending) return;
+    const timer = window.setTimeout(() => { void saveRef.current?.(true); }, AUTO_SAVE_IDLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [dirty, busy, savePending, document]);
+  useEffect(() => {
     if (!selectedId) return;
     const layer = globalThis.document.getElementById(`layer-${selectedId}`);
     layer?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     globalThis.document.getElementById(`edit-${selectedId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [selectedId, expandedChapters]);
+  const switchView = useCallback((next: "preview" | "editor") => {
+    if (next === tab) return;
+    if (next === "preview") {
+      editorScrollY.current = window.scrollY;
+      layerScrollY.current = globalThis.document.querySelector<HTMLElement>(".sb-layers")?.scrollTop ?? 0;
+      previewTargetId.current = selectedId;
+    }
+    pendingViewSwitch.current = next;
+    setTab(next);
+  }, [selectedId, tab]);
+  useLayoutEffect(() => {
+    if (pendingViewSwitch.current !== tab) return;
+    pendingViewSwitch.current = null;
+    if (tab === "editor") {
+      const layers = globalThis.document.querySelector<HTMLElement>(".sb-layers");
+      if (layers) layers.scrollTop = layerScrollY.current;
+      window.scrollTo({ top: editorScrollY.current, behavior: "instant" });
+      return;
+    }
+    const id = previewTargetId.current;
+    const section = id && globalThis.document.getElementById(`section-${id}`);
+    const chapterId = document.chapters.find(chapter => chapter.id === id || chapter.sections.some(item => item.id === id))?.id;
+    const target = section || (chapterId && globalThis.document.getElementById(`chapter-${chapterId}`));
+    if (!target) { window.scrollTo({ top: 0, behavior: "instant" }); return; }
+    const topbar = globalThis.document.querySelector<HTMLElement>(".sb-topbar");
+    const jump = globalThis.document.querySelector<HTMLElement>(".sb-finished .storyboard-jump");
+    const offset = (topbar?.getBoundingClientRect().bottom ?? 0) + (jump?.getBoundingClientRect().height ?? 0) + 16;
+    window.scrollTo({ top: Math.max(0, window.scrollY + target.getBoundingClientRect().top - offset), behavior: "instant" });
+  }, [tab, document.chapters]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "p" || event.repeat || event.isComposing || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""], [role="textbox"]')) return;
+      if (globalThis.document.querySelector('dialog[open], [role="dialog"]')) return;
+      event.preventDefault();
+      switchView(tab === "editor" ? "preview" : "editor");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [switchView, tab]);
   const status = dirty ? "Unsaved changes" : version === 0 ? "No saved draft" : publishedVersion === version ? outdatedComic ? "Updated comic style available" : "Published version" : "Saved draft";
 
   function select(id: string) {
@@ -237,22 +296,65 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     const target = owner.sections[si + direction];
     if (target) moveSection(id, owner.id, target.id, direction === 1);
   }
-  async function save() {
-    if (busy || !dirty && version > 0) return;
+  async function save(automatic = false) {
+    if (busy || saveRequest.current || !dirty && version > 0) return;
     const snapshot = structuredClone(document); const serialized = JSON.stringify(snapshot);
     setBusy("save"); setError(""); setFlash("");
-    const result = await saveDraftAction(snapshot, version);
-    setBusy(null);
-    if (result.ok) { setVersion(result.version); setSavedJson(serialized); setFlash("Draft saved"); }
-    else setError(result.error);
+    setSavePending(true);
+    const request = Promise.resolve().then(() => saveDraftAction(snapshot, version));
+    saveRequest.current = request;
+    let timedOut = false;
+    let timeout: number | undefined;
+    const finish = (result: Awaited<typeof request>) => {
+      if (result.ok) {
+        setVersion(result.version);
+        setSavedJson(serialized);
+        setError("");
+        setFlash(automatic ? "Draft autosaved" : "Draft saved");
+      } else {
+        setError(result.error);
+      }
+    };
+    try {
+      const result = await Promise.race([
+        request,
+        new Promise<null>(resolve => { timeout = window.setTimeout(() => resolve(null), SAVE_TIMEOUT_MS); }),
+      ]);
+      if (result === null) {
+        timedOut = true;
+        setBusy(null);
+        setError("Saving is taking longer than expected. Keep this tab open; the save is still pending.");
+        void request.then(finish).catch(cause => setError(cause instanceof Error ? cause.message : "Saving failed.")).finally(() => {
+          if (saveRequest.current === request) saveRequest.current = null;
+          setSavePending(false);
+        });
+        return;
+      }
+      finish(result);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Saving failed.");
+    } finally {
+      if (timeout) window.clearTimeout(timeout);
+      if (!timedOut) {
+        if (saveRequest.current === request) saveRequest.current = null;
+        setSavePending(false);
+        setBusy(null);
+      }
+    }
   }
+  saveRef.current = save;
   async function publish() {
-    if (busy || dirty || version === 0) return;
+    if (busy || savePending || saveRequest.current || dirty || version === 0) return;
     setBusy("publish"); setError(""); setFlash("");
-    const result = await publishDraftAction(version);
-    setBusy(null);
-    if (result.ok) { setPublished(result.published); setPublishedVersion(result.version); setPublishedAt(result.publishedAt); setFlash("Published version updated"); }
-    else setError(result.error);
+    try {
+      const result = await publishDraftAction(version);
+      if (result.ok) { setPublished(result.published); setPublishedVersion(result.version); setFlash("Published version updated"); }
+      else setError(result.error);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Publishing failed.");
+    } finally {
+      setBusy(null);
+    }
   }
   function command(name: "bold" | "italic" | "underline" | "bulletList" | "orderedList") {
     if (!textEditor) return;
@@ -292,12 +394,11 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     <MainSiteHeader />
     <header className="sb-topbar">
       <div><p className="sb-kicker">NORTH OF HELL / STORYBOARD</p><h1>Storyboard studio</h1></div>
-      <nav className="sb-tabs" aria-label="Storyboard view"><button type="button" aria-current={tab === "finished" ? "page" : undefined} onClick={() => setTab("finished")}>Finished page</button><button type="button" aria-current={tab === "editor" ? "page" : undefined} onClick={() => setTab("editor")}>Editor</button></nav>
-      <button type="button" className="sb-theme-toggle" onClick={toggleTheme} aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} aria-pressed={theme === "light"}>{theme === "light" ? "☀ Light" : "☾ Dark"}</button>
-      <div className="sb-save-actions"><span className={`sb-status ${dirty ? "dirty" : ""}`} role="status">{status}</span><button type="button" onClick={save} disabled={!!busy || !dirty && version > 0}>{busy === "save" ? "Saving…" : "Save draft"}</button><button type="button" className="primary" onClick={publish} disabled={!!busy || dirty || version === 0 || publishedVersion === version && !outdatedComic}>{busy === "publish" ? "Publishing…" : "Publish"}</button></div>
+      <nav className="sb-tabs" aria-label="Storyboard view"><button type="button" aria-current={tab === "preview" ? "page" : undefined} onClick={() => switchView("preview")} title="Preview draft (P)">Preview <span className="sb-tab-shortcut" aria-hidden="true">P</span></button><button type="button" aria-current={tab === "editor" ? "page" : undefined} onClick={() => switchView("editor")} title="Return to editor (P)">Editor</button></nav>
+      <div className="sb-save-actions"><span className={`sb-status ${dirty ? "dirty" : ""}`} role="status" title={dirty ? "Automatically saves after 2 minutes without editing" : undefined}>{status}</span><button type="button" onClick={() => void save()} disabled={!!busy || savePending || !dirty && version > 0}>{busy === "save" ? "Saving…" : savePending ? "Save pending…" : "Save draft"}</button><button type="button" className="primary" onClick={publish} disabled={!!busy || savePending || !!saveRequest.current || dirty || version === 0 || publishedVersion === version && !outdatedComic}>{busy === "publish" ? "Publishing…" : "Publish"}</button></div>
     </header>
     {(error || flash) && <div className={error ? "sb-message error" : "sb-message"} role={error ? "alert" : "status"}>{error || flash}</div>}
-    {tab === "finished" ? <div className="sb-finished"><div className="sb-finished-note"><span>{published ? `Published ${publishedAt ? new Date(publishedAt).toLocaleString("en-US") : "version"}` : "No published version yet"}</span><Link href="/storyboard" target="_blank">Open reader page ↗</Link></div>{published ? <StoryboardDocumentView document={published} /> : <p className="sb-empty">Save the draft and select Publish to show it here.</p>}</div> : <>
+    {tab === "preview" ? <div className="sb-finished"><div className="sb-finished-note"><span>Draft preview{dirty ? " · Includes unsaved changes" : ""}</span><Link href="/storyboard" target="_blank">Open published page ↗</Link></div><StoryboardDocumentView document={document} preview /></div> : <>
       <div className="sb-workspace">
         <aside className="sb-layers"><div className="sb-panel-heading"><h2>Layers</h2><button type="button" onClick={addChapter}>+ Chapter</button></div><button type="button" className="sb-open-library" onClick={() => setLibraryOpen(true)}>Image library · Upload frames</button>
           {document.chapters.length === 0 && <p className="sb-muted">Start with a chapter.</p>}
@@ -316,7 +417,7 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
             <div className="sb-edit-heading"><button type="button" className="sb-grip" draggable onDragStart={event => startDrag(event,{kind:"chapter",id:chapter.id})} aria-label={`Drag chapter ${chapter.title}`}>⋮⋮</button><span>CHAPTER {String(index+1).padStart(2,"0")}</span><button type="button" onClick={() => duplicate(chapter.id)}>Duplicate</button><button type="button" onClick={() => remove(chapter.id)}>Delete</button></div>
             {selectedId === chapter.id ? <input className="sb-title-input" aria-label="Chapter title" value={chapter.title} onChange={event => updateChapter(chapter.id,c => { c.title = event.target.value; })} onClick={event => event.stopPropagation()} /> : <h2>{chapter.title}</h2>}
             {expandedChapters.includes(chapter.id) ? chapter.sections.map(section => <section key={section.id} id={`edit-${section.id}`} className={`sb-edit-section sb-edit-section--${section.kind} ${selectedId === section.id ? "is-selected" : ""}`} onDragOver={allowDrop} onDrop={event => dropSection(event,chapter.id,section.id)} onClick={event => { event.stopPropagation(); if (selectedId !== section.id) select(section.id); }}>
-              <div className="sb-edit-section-head"><button type="button" className="sb-grip" draggable onDragStart={event => startDrag(event,{kind:"section",id:section.id})} aria-label={`Drag ${section.title}`}>⋮⋮</button>{selectedId !== section.id ? <div className="sb-section-compact-copy"><span>{sectionNames[section.kind]}</span><h3>{section.title}</h3>{section.kind === "comic" && <p className="sb-comic-summary">{section.bubbles.length} {section.bubbles.length === 1 ? "bubble" : "bubbles"} · {section.sounds.length} {section.sounds.length === 1 ? "sound effect" : "sound effects"}</p>}{section.kind === "images" && <p className="sb-image-summary">{section.images.length} of {capacity[section.layout]} images</p>}{(section.kind === "text" || section.kind === "screenplay") && sectionExcerpt(section) && <p className="sb-section-excerpt">{sectionExcerpt(section)}</p>}</div> : <span>{sectionNames[section.kind]}</span>}{selectedId === section.id && section.kind === "comic" && <input className="sb-section-title-input" aria-label="Section title" value={section.title} onChange={event => updateSection(section.id,s => { s.title = event.target.value; })} />}{selectedId !== section.id && section.kind === "comic" && <SectionContent section={section} />}{selectedId !== section.id && section.kind === "images" && <ImageSectionPreview section={section} />}<button type="button" onClick={() => duplicate(section.id)}>Duplicate</button><button type="button" onClick={() => remove(section.id)}>Delete</button></div>
+              <div className="sb-edit-section-head"><button type="button" className="sb-grip" draggable onDragStart={event => startDrag(event,{kind:"section",id:section.id})} aria-label={`Drag ${section.title}`}>⋮⋮</button>{selectedId !== section.id ? <div className="sb-section-compact-copy"><span>{sectionNames[section.kind]}</span><h3>{section.title}</h3>{section.kind === "comic" && <p className="sb-comic-summary">{comicSummary(section)}</p>}{section.kind === "images" && <p className="sb-image-summary">{section.images.length} of {capacity[section.layout]} images</p>}{(section.kind === "text" || section.kind === "screenplay") && sectionExcerpt(section) && <p className="sb-section-excerpt">{sectionExcerpt(section)}</p>}</div> : <span>{sectionNames[section.kind]}</span>}{selectedId === section.id && section.kind === "comic" && <input className="sb-section-title-input" aria-label="Section title" value={section.title} onChange={event => updateSection(section.id,s => { s.title = event.target.value; })} />}{selectedId !== section.id && section.kind === "comic" && <SectionContent section={section} />}{selectedId !== section.id && section.kind === "images" && <ImageSectionPreview section={section} />}<button type="button" onClick={() => duplicate(section.id)}>Duplicate</button><button type="button" onClick={() => remove(section.id)}>Delete</button></div>
               {selectedId === section.id && section.kind !== "comic" && <input className="sb-section-title-input" aria-label="Section title" value={section.title} onChange={event => updateSection(section.id,s => { s.title = event.target.value; })} />}
               {selectedId === section.id && section.kind === "text" && textToolbar}
               {selectedId === section.id && section.kind === "screenplay" && <div className="sb-formatbar sb-screenplay-toolbar" role="toolbar" aria-label="Screenplay toolbar"><ScreenplayToolbar editor={manusEditor} /></div>}

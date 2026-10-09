@@ -45,8 +45,8 @@ function wrapAt(text: string, maxWidth: number, size: number) {
 }
 
 export function layoutBubbleText(bubble: ComicBubble) {
-  const maxWidth = bubble.width * .72;
-  const maxHeight = bubble.height * .68;
+  const maxWidth = bubble.shape === "rectangle" ? bubble.width - 56 : bubble.width * .72;
+  const maxHeight = bubble.shape === "rectangle" ? bubble.height - 32 : bubble.height * .68;
   for (let size = bubble.fontSize; size >= 18; size -= 1) {
     const lines = wrapAt(bubble.text, maxWidth, size);
     if (lines.length * size * 1.08 <= maxHeight && lines.every(line => measuredLength(line, size) <= maxWidth))
@@ -139,7 +139,7 @@ export function updateComicSpace(section: ComicSection, side: "above" | "below",
   section.renderedSrc = undefined;
 }
 
-export function renderComicSvg(section: ComicSection, imageHref = section.src, textPath?: ComicTextPath) {
+export function renderComicSvg(section: ComicSection, imageHref = section.src, textPath?: ComicTextPath, editingBubbleId?: string) {
   const height = comicHeight(section);
   const imageHeight = comicImageHeight(section);
   const bubbles = section.bubbles.map(bubble => {
@@ -149,9 +149,11 @@ export function renderComicSvg(section: ComicSection, imageHref = section.src, t
     const lettering = textPath
       ? text.lines.map((line, index) => `<path d="${textPath(line, bubble.x + bubble.width / 2, firstY + index * lineHeight, text.size)}" fill="#171412"/>`).join("")
       : `<text fill="#171412" font-family="Jack Armstrong, sans-serif" font-size="${text.size}" font-weight="400" text-anchor="middle">${text.lines.map((line, index) => `<tspan x="${bubble.x + bubble.width / 2}" y="${firstY + index * lineHeight}">${xml(line || " ")}</tspan>`).join("")}</text>`;
+    const visibleLettering = bubble.id === editingBubbleId ? "" : lettering;
+    if (bubble.shape === "rectangle") return `<g data-bubble-id="${xml(bubble.id)}"><rect x="${bubble.x + 1.7}" y="${bubble.y + 1.7}" width="${bubble.width - 3.4}" height="${bubble.height - 3.4}" fill="#fff" stroke="#171412" stroke-width="3.4"/>${visibleLettering}</g>`;
     const outline = bubbleOutline(bubble);
     const accents = outline.accents.map(path => `<path d="${path}" fill="none" stroke="#171412" stroke-width="4.8" stroke-linecap="round" opacity=".7"/>`).join("");
-    return `<g data-bubble-id="${xml(bubble.id)}"><path d="${outline.path}" fill="#fff" stroke="#171412" stroke-width="3.4" stroke-linejoin="round"/>${accents}${lettering}</g>`;
+    return `<g data-bubble-id="${xml(bubble.id)}"><path d="${outline.path}" fill="#fff" stroke="#171412" stroke-width="3.4" stroke-linejoin="round"/>${accents}${visibleLettering}</g>`;
   }).join("");
   const sounds = section.sounds.map(sound => {
     const bounds = soundBounds(sound);

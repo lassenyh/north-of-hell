@@ -9,6 +9,7 @@ export type Section =
 export type StoryboardImage = { id: string; src: string; description: string; slot: number };
 export type ComicBubble = {
   id: string; text: string; x: number; y: number; width: number; height: number;
+  shape?: "rectangle";
   tailSide: "none" | "top" | "bottom" | "left" | "right";
   tailX: number; tailY: number; fontSize: number;
 };
@@ -144,9 +145,10 @@ export function parseDocument(input: unknown): StoryboardDocument {
             const bubble = raw as Record<string, unknown>;
             return {
               id: checkId(bubble.id), text: typeof bubble.text === "string" ? bubble.text.slice(0, 1500) : "",
+              ...(bubble.shape === "rectangle" ? { shape: "rectangle" as const } : {}),
               x: numberIn(bubble.x, 0, 800, 150), y: numberIn(bubble.y, 0, 8000, 30),
-              width: numberIn(bubble.width, 100, 760, 440), height: numberIn(bubble.height, 70, 600, 170),
-              tailSide: ["none", "top", "bottom", "left", "right"].includes(String(bubble.tailSide)) ? bubble.tailSide as ComicBubble["tailSide"] : "bottom",
+              width: numberIn(bubble.width, 100, bubble.shape === "rectangle" ? 800 : 760, bubble.shape === "rectangle" ? 800 : 440), height: numberIn(bubble.height, 70, 600, 170),
+              tailSide: bubble.shape === "rectangle" ? "none" as const : ["none", "top", "bottom", "left", "right"].includes(String(bubble.tailSide)) ? bubble.tailSide as ComicBubble["tailSide"] : "bottom",
               tailX: numberIn(bubble.tailX, 0, 800, 390), tailY: numberIn(bubble.tailY, 0, 8000, 260),
               fontSize: numberIn(bubble.fontSize, 18, 64, 34),
             };
