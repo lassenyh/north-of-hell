@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { duplicateChapter, importLegacyFrames, moveImageToSlot, parseDocument, putImageInSlot, safeImageSource, type StoryboardDocument } from "../../src/lib/storyboard/model";
+import { duplicateChapter, duplicateSection, importLegacyFrames, insertNumberedSection, moveImageToSlot, moveSectionWithNumbering, parseDocument, putImageInSlot, safeImageSource, type StoryboardDocument } from "../../src/lib/storyboard/model";
 import { nextBlockAfterEnter, nextBlockAfterTab } from "../../src/components/screenplay/ScreenplayExtensions";
 import { SCREENPLAY_ELEMENT_OPTIONS } from "../../src/components/screenplay/ScreenplayExtensions";
 import { SCREENPLAY_BLOCK_TYPES, parseScreenplayBlocks, stringifyScreenplayBlocks } from "../../src/lib/screenplay-json";
@@ -42,6 +42,17 @@ test("document parsing rejects duplicate IDs and unsafe image URLs", () => {
   assert.throws(() => parseDocument(duplicate), /duplicate ID/);
 });
 
+test("video sections survive saving and duplication while rejecting unsafe sources", () => {
+  const section = { id: "video", kind: "video" as const, title: "0014", src: "/storyboard-uploads/scene.mp4" };
+  const document: StoryboardDocument = { schemaVersion: 1, title: "Storyboard", chapters: [{ id: "chapter", title: "One", sections: [section] }] };
+  assert.deepEqual(parseDocument(document), document);
+  const copy = duplicateSection(section);
+  assert.equal(copy.kind, "video");
+  assert.notEqual(copy.id, section.id);
+  assert.equal(copy.src, section.src);
+  assert.throws(() => parseDocument({ ...document, chapters: [{ ...document.chapters[0], sections: [{ ...section, src: "javascript:alert(1)" }] }] }), /Invalid video URL/);
+});
+
 test("older default section labels display in English without changing authored text", () => {
   const document: StoryboardDocument = { schemaVersion: 1, title: "Test", chapters: [{ id: "chapter", title: "Nytt kapittel", sections: [
     { id: "old-default", kind: "text", title: "Ny tekstseksjon", html: "<p></p>", align: "left", size: 16 },
@@ -51,6 +62,53 @@ test("older default section labels display in English without changing authored 
   assert.equal(parsed.chapters[0].title, "New chapter");
   assert.equal(parsed.chapters[0].sections[0].title, "New text section");
   assert.equal(parsed.chapters[0].sections[1].title, "Ut på tur");
+});
+
+test("new sections take the next number and shift later numbered titles across chapters", () => {
+  const text = (id: string, title: string) => ({ id, kind: "text" as const, title, html: "<p></p>", align: "left" as const, size: 16 });
+  const document: StoryboardDocument = { schemaVersion: 1, title: "Storyboard", chapters: [
+    { id: "first", title: "First", sections: [text("70", "0070")] },
+    { id: "second", title: "Second", sections: [text("71", "0071"), text("note", "Interlude"), text("72", "0072")] },
+  ] };
+  const added = text("new", "New text section");
+
+  assert.equal(insertNumberedSection(document, "first", added, "70"), true);
+  assert.equal(added.title, "0071");
+  assert.deepEqual(document.chapters.flatMap(chapter => chapter.sections.map(section => section.title)),
+    ["0070", "0071", "0072", "Interlude", "0073"]);
+});
+
+test("new sections fill a numbering gap without changing later titles", () => {
+  const text = (id: string, title: string) => ({ id, kind: "text" as const, title, html: "<p></p>", align: "left" as const, size: 16 });
+  const document: StoryboardDocument = { schemaVersion: 1, title: "Storyboard", chapters: [
+    { id: "chapter", title: "Chapter", sections: [text("2", "0002"), text("8", "0008")] },
+  ] };
+  insertNumberedSection(document, "chapter", text("new", "New text section"), "2");
+  assert.deepEqual(document.chapters[0].sections.map(section => section.title), ["0002", "0003", "0008"]);
+});
+
+test("moving a numbered section updates names for its new position", () => {
+  const text = (id: string, title: string) => ({ id, kind: "text" as const, title, html: "<p></p>", align: "left" as const, size: 16 });
+  const document: StoryboardDocument = { schemaVersion: 1, title: "Storyboard", chapters: [
+    { id: "first", title: "First", sections: [text("70", "0070"), text("71", "0071")] },
+    { id: "second", title: "Second", sections: [text("note", "Interlude"), text("72", "0072")] },
+  ] };
+
+  assert.equal(moveSectionWithNumbering(document, "72", "first", "71"), true);
+  assert.deepEqual(document.chapters[0].sections.map(section => [section.id, section.title]),
+    [["70", "0070"], ["72", "0071"], ["71", "0072"]]);
+  assert.equal(moveSectionWithNumbering(document, "70", "second", "note", true), true);
+  assert.deepEqual(document.chapters.flatMap(chapter => chapter.sections.map(section => [section.id, section.title])),
+    [["72", "0070"], ["71", "0071"], ["note", "Interlude"], ["70", "0072"]]);
+});
+
+test("moving an out-of-order number into place leaves its correct title intact", () => {
+  const text = (id: string, title: string) => ({ id, kind: "text" as const, title, html: "<p></p>", align: "left" as const, size: 16 });
+  const document: StoryboardDocument = { schemaVersion: 1, title: "Storyboard", chapters: [
+    { id: "chapter", title: "Chapter", sections: [text("11", "0011"), text("12", "0012"), text("13", "0013"), text("10", "0010")] },
+  ] };
+  moveSectionWithNumbering(document, "10", "chapter", "11");
+  assert.deepEqual(document.chapters[0].sections.map(section => section.title), ["0010", "0011", "0012", "0013"]);
 });
 
 test("fixed image slots preserve placement and descriptions through swaps", () => {

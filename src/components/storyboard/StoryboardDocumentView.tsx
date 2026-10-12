@@ -26,6 +26,9 @@ export function SectionContent({ section, showEmptyImageSlots = false, preferSou
   if (section.kind === "comic") return !preferSourceComic && section.renderedSrc && section.renderVersion === COMIC_RENDER_VERSION ? (
     <div className="storyboard-comic-image"><Image src={section.renderedSrc} alt={section.description || section.title} width={800} height={comicHeight(section)} unoptimized sizes="(max-width: 800px) 100vw, 800px" /></div>
   ) : <div className="storyboard-comic-image" dangerouslySetInnerHTML={{ __html: renderComicSvg(section) }} />;
+  if (section.kind === "video") return section.src ? (
+    <div className="storyboard-video"><video src={section.src} controls playsInline preload="metadata" aria-label={section.title} /></div>
+  ) : null;
   const images = [...section.images].sort((a, b) => a.slot - b.slot);
   if (images.length === 0 && !showEmptyImageSlots) return null;
   const count = section.layout === "single" ? 1 : section.layout === "1x2" ? 2 : section.layout === "2x2" ? 4 : section.layout === "2x3" ? 6 : 9;
@@ -53,10 +56,11 @@ export function StoryboardDocumentView({ document, floatingChapterJump = false, 
       {!floatingChapterJump && <ChapterJump chapters={chapters} />}
       {document.chapters.map((chapter, index) => (
         <article key={chapter.id} id={`chapter-${chapter.id}`} className="storyboard-chapter">
-          <header className="storyboard-chapter-header"><span>Chapter {String(index + 1).padStart(2, "0")}</span><h2>{chapter.title}</h2></header>
-          {chapter.sections.filter(section => section.kind === "images" ? section.images.length > 0 : section.kind === "comic" ? !!section.src : true).map(section => (
+          <header className="storyboard-chapter-header">
+            <h2 aria-label={`Chapter ${index + 1}: ${chapter.title}`}><span aria-hidden="true">Chapter</span><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span></h2>
+          </header>
+          {chapter.sections.filter(section => section.kind === "images" ? section.images.length > 0 : section.kind === "comic" || section.kind === "video" ? !!section.src : true).map(section => (
             <section key={section.id} id={`section-${section.id}`} className={`storyboard-section storyboard-section--${section.kind}`}>
-              {section.kind === "text" && <h3>{section.title}</h3>}
               <SectionContent section={section} preferSourceComic={preview} />
             </section>
           ))}

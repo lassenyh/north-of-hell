@@ -5,11 +5,13 @@ export type Section =
   | { id: string; kind: "text"; title: string; html: string; align: "left" | "center" | "right"; size: number }
   | { id: string; kind: "screenplay"; title: string; blocks: ScreenplayBlock[] }
   | { id: string; kind: "images"; title: string; layout: "single" | "1x2" | "2x2" | "2x3" | "3x3"; images: StoryboardImage[] }
+  | { id: string; kind: "video"; title: string; src: string }
   | ComicSection;
 export type StoryboardImage = { id: string; src: string; description: string; slot: number };
 export type ComicBubble = {
   id: string; text: string; x: number; y: number; width: number; height: number;
   shape?: "rectangle";
+  parentId?: string;
   tailSide: "none" | "top" | "bottom" | "left" | "right";
   tailX: number; tailY: number; fontSize: number;
 };
@@ -126,6 +128,10 @@ export function parseDocument(input: unknown): StoryboardDocument {
         });
         return { id, title, kind: "images" as const, layout, images: images.sort((a, b) => a.slot - b.slot) };
       }
+      if (sec.kind === "video") {
+        if (typeof sec.src !== "string" || (sec.src && !safeImageSource(sec.src))) throw new Error("Invalid video URL.");
+        return { id, title, kind: "video" as const, src: sec.src };
+      }
       if (sec.kind === "comic") {
         if (typeof sec.src !== "string" || (sec.src && !safeImageSource(sec.src))) throw new Error("Invalid comic image URL.");
         if (!Array.isArray(sec.bubbles) || sec.bubbles.length > 30) throw new Error("Invalid comic bubbles.");
@@ -133,6 +139,22 @@ export function parseDocument(input: unknown): StoryboardDocument {
         const numberIn = (input: unknown, min: number, max: number, fallback: number) =>
           typeof input === "number" && Number.isFinite(input) && input >= min && input <= max ? input : fallback;
         const background = typeof sec.background === "string" && /^#[0-9a-f]{6}$/i.test(sec.background) ? sec.background : "#000000";
+        const bubbles: ComicBubble[] = sec.bubbles.map((raw: unknown) => {
+          if (!raw || typeof raw !== "object") throw new Error("Invalid comic bubble.");
+          const bubble = raw as Record<string, unknown>;
+          return {
+            id: checkId(bubble.id), text: typeof bubble.text === "string" ? bubble.text.slice(0, 1500) : "",
+            ...(bubble.shape === "rectangle" ? { shape: "rectangle" as const } : {}),
+            ...(typeof bubble.parentId === "string" ? { parentId: bubble.parentId } : {}),
+            x: numberIn(bubble.x, 0, 800, 150), y: numberIn(bubble.y, 0, 8000, 30),
+            width: numberIn(bubble.width, 100, bubble.shape === "rectangle" ? 800 : 760, bubble.shape === "rectangle" ? 800 : 440), height: numberIn(bubble.height, 70, 600, 170),
+            tailSide: bubble.shape === "rectangle" || bubble.parentId ? "none" as const : ["none", "top", "bottom", "left", "right"].includes(String(bubble.tailSide)) ? bubble.tailSide as ComicBubble["tailSide"] : "bottom",
+            tailX: numberIn(bubble.tailX, 0, 800, 390), tailY: numberIn(bubble.tailY, 0, 8000, 260),
+            fontSize: numberIn(bubble.fontSize, 18, 64, 34),
+          };
+        });
+        const roots = new Set(bubbles.filter(bubble => !bubble.parentId && bubble.shape !== "rectangle").map(bubble => bubble.id));
+        for (const bubble of bubbles) if (bubble.parentId && (bubble.shape === "rectangle" || !roots.has(bubble.parentId))) delete bubble.parentId;
         return {
           id, kind: "comic" as const, title, src: sec.src,
           description: typeof sec.description === "string" ? sec.description.slice(0, 1000) : "",
@@ -140,19 +162,7 @@ export function parseDocument(input: unknown): StoryboardDocument {
           imageWidth: numberIn(sec.imageWidth, 1, 30000, 800), imageHeight: numberIn(sec.imageHeight, 1, 30000, 450),
           topSpace: numberIn(sec.topSpace, 0, 1600, 240), bottomSpace: numberIn(sec.bottomSpace, 0, 1600, 240),
           background,
-          bubbles: sec.bubbles.map((raw: unknown) => {
-            if (!raw || typeof raw !== "object") throw new Error("Invalid comic bubble.");
-            const bubble = raw as Record<string, unknown>;
-            return {
-              id: checkId(bubble.id), text: typeof bubble.text === "string" ? bubble.text.slice(0, 1500) : "",
-              ...(bubble.shape === "rectangle" ? { shape: "rectangle" as const } : {}),
-              x: numberIn(bubble.x, 0, 800, 150), y: numberIn(bubble.y, 0, 8000, 30),
-              width: numberIn(bubble.width, 100, bubble.shape === "rectangle" ? 800 : 760, bubble.shape === "rectangle" ? 800 : 440), height: numberIn(bubble.height, 70, 600, 170),
-              tailSide: bubble.shape === "rectangle" ? "none" as const : ["none", "top", "bottom", "left", "right"].includes(String(bubble.tailSide)) ? bubble.tailSide as ComicBubble["tailSide"] : "bottom",
-              tailX: numberIn(bubble.tailX, 0, 800, 390), tailY: numberIn(bubble.tailY, 0, 8000, 260),
-              fontSize: numberIn(bubble.fontSize, 18, 64, 34),
-            };
-          }),
+          bubbles,
           sounds: (Array.isArray(sec.sounds) ? sec.sounds : []).map((raw: unknown) => {
             if (!raw || typeof raw !== "object") throw new Error("Invalid comic sound effect.");
             const sound = raw as Record<string, unknown>;
@@ -182,8 +192,68 @@ export function safeImageSource(src: string) {
 
 export function duplicateSection(section: Section): Section {
   if (section.kind === "images") return { ...section, id: newId(), title: `${section.title} (copy)`, images: section.images.map(image => ({ ...image, id: newId() })) };
-  if (section.kind === "comic") return { ...section, id: newId(), title: `${section.title} (copy)`, bubbles: section.bubbles.map(bubble => ({ ...bubble, id: newId() })), sounds: section.sounds.map(sound => ({ ...sound, id: newId() })), renderedSrc: undefined, renderVersion: undefined };
+  if (section.kind === "comic") {
+    const ids = new Map(section.bubbles.map(bubble => [bubble.id, newId()]));
+    return { ...section, id: newId(), title: `${section.title} (copy)`, bubbles: section.bubbles.map(bubble => ({ ...bubble, id: ids.get(bubble.id)!, ...(bubble.parentId ? { parentId: ids.get(bubble.parentId) } : {}) })), sounds: section.sounds.map(sound => ({ ...sound, id: newId() })), renderedSrc: undefined, renderVersion: undefined };
+  }
   return { ...section, id: newId(), title: `${section.title} (copy)` };
+}
+
+const numberedSectionTitle = (title: string) => /^\d{4,}$/.test(title) && Number.isSafeInteger(Number(title)) ? Number(title) : null;
+
+// Number new sections by their position across chapters. Existing numbered
+// titles after the insertion move forward when the new number is occupied.
+export function insertNumberedSection(document: StoryboardDocument, chapterId: string, section: Section, afterSectionId?: string) {
+  const chapterIndex = document.chapters.findIndex(chapter => chapter.id === chapterId);
+  if (chapterIndex < 0) return false;
+  const chapter = document.chapters[chapterIndex];
+  const afterIndex = afterSectionId ? chapter.sections.findIndex(item => item.id === afterSectionId) : -1;
+  const insertIndex = afterIndex < 0 ? chapter.sections.length : afterIndex + 1;
+  let highestBefore = 0;
+
+  for (const [currentChapterIndex, currentChapter] of document.chapters.entries()) {
+    if (currentChapterIndex > chapterIndex) break;
+    const limit = currentChapterIndex === chapterIndex ? insertIndex : currentChapter.sections.length;
+    for (const existing of currentChapter.sections.slice(0, limit)) highestBefore = Math.max(highestBefore, numberedSectionTitle(existing.title) ?? 0);
+  }
+
+  const next = highestBefore + 1;
+  const following = document.chapters.flatMap((currentChapter, currentChapterIndex) =>
+    currentChapterIndex < chapterIndex ? [] : currentChapter.sections.slice(currentChapterIndex === chapterIndex ? insertIndex : 0));
+  if (following.some(existing => numberedSectionTitle(existing.title) === next)) {
+    for (const existing of following) {
+      const value = numberedSectionTitle(existing.title);
+      if (value !== null && value >= next) existing.title = String(value + 1).padStart(existing.title.length, "0");
+    }
+  }
+
+  section.title = String(next).padStart(4, "0");
+  chapter.sections.splice(insertIndex, 0, section);
+  return true;
+}
+
+export function moveSectionWithNumbering(document: StoryboardDocument, id: string, chapterId: string, targetId?: string, after = false) {
+  if (id === targetId) return false;
+  const origin = document.chapters.find(chapter => chapter.sections.some(section => section.id === id));
+  const destination = document.chapters.find(chapter => chapter.id === chapterId);
+  if (!origin || !destination || (targetId && !destination.sections.some(section => section.id === targetId))) return false;
+
+  const numberedBefore = document.chapters.flatMap(chapter => chapter.sections).filter(section => numberedSectionTitle(section.title) !== null);
+  const sourceIndex = origin.sections.findIndex(section => section.id === id);
+  const [section] = origin.sections.splice(sourceIndex, 1);
+  const targetIndex = targetId ? destination.sections.findIndex(item => item.id === targetId) + (after ? 1 : 0) : destination.sections.length;
+  destination.sections.splice(targetIndex, 0, section);
+
+  if (numberedSectionTitle(section.title) !== null) {
+    const numberedAfter = document.chapters.flatMap(chapter => chapter.sections).filter(item => numberedSectionTitle(item.title) !== null);
+    const oldIndex = numberedBefore.findIndex(item => item.id === id);
+    const newIndex = numberedAfter.findIndex(item => item.id === id);
+    const start = Math.min(oldIndex, newIndex);
+    const end = Math.max(oldIndex, newIndex) + 1;
+    const titles = numberedBefore.slice(start, end).map(item => item.title).sort((a, b) => Number(a) - Number(b));
+    numberedAfter.slice(start, end).forEach((item, index) => { item.title = titles[index]; });
+  }
+  return true;
 }
 
 export function putImageInSlot(section: Extract<Section, { kind: "images" }>, slot: number, src: string) {

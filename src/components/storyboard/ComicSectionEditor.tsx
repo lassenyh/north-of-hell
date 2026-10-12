@@ -23,7 +23,7 @@ function Slider({ label, value, min, max, unit = "px", dragOnly = false, disable
 type Change = (fn: (section: ComicSection) => void) => void;
 const comicLibraryDragType = "application/x-north-of-hell-comic-image";
 type DragState =
-  | { kind: "bubble"; id: string; mode: "move" | "resize" | "tail"; startX: number; startY: number; clientX: number; clientY: number; scale: number; bubble: ComicBubble }
+  | { kind: "bubble"; id: string; mode: "move" | "resize" | "tail"; startX: number; startY: number; clientX: number; clientY: number; scale: number; bubble: ComicBubble; members: ComicBubble[] }
   | { kind: "sound"; id: string; mode: "move" | "size" | "rotate"; startX: number; startY: number; clientX: number; clientY: number; scale: number; startDistance: number; startAngle: number; sound: ComicSound };
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const escapeAttribute = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -38,6 +38,22 @@ function constrainTail(bubble: ComicBubble, totalHeight: number) {
   if (bubble.tailSide === "bottom") bubble.tailY = clamp(bubble.tailY, Math.min(totalHeight, bubble.y + bubble.height + 5), totalHeight);
   if (bubble.tailSide === "left") bubble.tailX = clamp(bubble.tailX, 0, Math.max(0, bubble.x - 5));
   if (bubble.tailSide === "right") bubble.tailX = clamp(bubble.tailX, Math.min(800, bubble.x + bubble.width + 5), 800);
+}
+function bubbleMembers(bubbles: ComicBubble[], bubble: ComicBubble) {
+  return bubble.parentId ? [bubble] : [bubble, ...bubbles.filter(item => item.parentId === bubble.id)];
+}
+function moveBubbleMembers(section: ComicSection, originals: ComicBubble[], dx: number, dy: number) {
+  const totalHeight = comicHeight(section);
+  const x = clamp(dx, -Math.min(...originals.map(item => item.x)), 800 - Math.max(...originals.map(item => item.x + item.width)));
+  const y = clamp(dy, -Math.min(...originals.map(item => item.y)), totalHeight - Math.max(...originals.map(item => item.y + item.height)));
+  for (const original of originals) {
+    const item = section.bubbles.find(bubble => bubble.id === original.id);
+    if (!item) continue;
+    item.x = Math.round(original.x + x); item.y = Math.round(original.y + y);
+    item.tailX = Math.round(clamp(original.tailX + x, 0, 800));
+    item.tailY = Math.round(clamp(original.tailY + y, 0, totalHeight));
+    constrainTail(item, totalHeight);
+  }
 }
 
 export function ComicSectionEditor({ section, library, libraryChapters, defaultChapter, onUploaded, onChapterCreated, onChange }: { section: ComicSection; library: string[]; libraryChapters: string[]; defaultChapter: string; onUploaded: (src: string) => void; onChapterCreated: (chapter: string) => void; onChange: Change }) {
@@ -55,6 +71,13 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
   const inlineTextRef = useRef<HTMLTextAreaElement>(null);
   const inlineSoundRef = useRef<HTMLTextAreaElement>(null);
   const activeBubble = section.bubbles.find(item => item.id === selected);
+  const activeRoot = activeBubble?.parentId ? section.bubbles.find(item => item.id === activeBubble.parentId) : activeBubble;
+  const activeCompanions = activeRoot ? section.bubbles.filter(item => item.parentId === activeRoot.id) : [];
+  const activeMoveMembers = activeBubble ? bubbleMembers(section.bubbles, activeBubble) : [];
+  const activeMoveMinX = activeBubble ? activeBubble.x - Math.min(...activeMoveMembers.map(item => item.x)) : 0;
+  const activeMoveMaxX = activeBubble ? activeBubble.x + 800 - Math.max(...activeMoveMembers.map(item => item.x + item.width)) : 800;
+  const activeMoveMinY = activeBubble ? activeBubble.y - Math.min(...activeMoveMembers.map(item => item.y)) : 0;
+  const activeMoveMaxY = activeBubble ? activeBubble.y + comicHeight(section) - Math.max(...activeMoveMembers.map(item => item.y + item.height)) : comicHeight(section);
   const activeSound = section.sounds.find(item => item.id === selected);
   const activeTextLayout = activeBubble ? layoutBubbleText(activeBubble) : null;
   const activeBubbleMaxWidth = activeBubble?.shape === "rectangle"
@@ -74,8 +97,8 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
   const chapters = libraryChapters;
   const matches = library.filter(src => (!chapter || libraryChapter(src) === chapter) && decodeURIComponent(src).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
 
-  function updateBubble(id: string, fn: (bubble: ComicBubble) => void) {
-    onChange(next => { const bubble = next.bubbles.find(item => item.id === id); if (bubble) fn(bubble); next.renderedSrc = undefined; });
+  function updateBubble(id: string, fn: (bubble: ComicBubble, next: ComicSection) => void) {
+    onChange(next => { const bubble = next.bubbles.find(item => item.id === id); if (bubble) fn(bubble, next); next.renderedSrc = undefined; });
   }
   function updateSound(id: string, fn: (sound: ComicSound) => void) {
     onChange(next => { const sound = next.sounds.find(item => item.id === id); if (sound) fn(sound); next.renderedSrc = undefined; });
@@ -187,7 +210,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
     requestAnimationFrame(() => inlineTextRef.current?.focus({ preventScroll: true }));
   }
   function removeBubble(id: string) {
-    onChange(next => { next.bubbles = next.bubbles.filter(item => item.id !== id); next.renderedSrc = undefined; });
+    onChange(next => { next.bubbles = next.bubbles.filter(item => item.id !== id && item.parentId !== id); next.renderedSrc = undefined; });
     if (selected === id) setSelected(null);
   }
   function addSound() {
@@ -211,25 +234,45 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
     setSelected(id);
   }
   function duplicateBubble(bubble: ComicBubble) {
-    if (section.bubbles.length >= 30) return;
+    const members = bubbleMembers(section.bubbles, bubble);
+    if (section.bubbles.length + members.length > 30) return;
     const id = newId();
     onChange(next => {
       const totalHeight = comicHeight(next);
-      const x = clamp(bubble.x + (bubble.x + bubble.width + 28 <= 800 ? 28 : -28), 0, 800 - bubble.width);
-      const y = clamp(bubble.y + (bubble.y + bubble.height + 28 <= totalHeight ? 28 : -28), 0, totalHeight - bubble.height);
-      const copy = { ...bubble, id, x, y, tailX: clamp(bubble.tailX + x - bubble.x, 0, 800), tailY: clamp(bubble.tailY + y - bubble.y, 0, totalHeight) };
-      constrainTail(copy, totalHeight);
-      next.bubbles.push(copy);
+      const dx = bubble.x + bubble.width + 28 <= 800 ? 28 : -28;
+      const dy = bubble.y + bubble.height + 28 <= totalHeight ? 28 : -28;
+      const copies = members.map((item, index) => ({ ...item, id: index === 0 ? id : newId(), ...(index > 0 ? { parentId: id } : {}), x: clamp(item.x + dx, 0, 800 - item.width), y: clamp(item.y + dy, 0, totalHeight - item.height), tailX: clamp(item.tailX + dx, 0, 800), tailY: clamp(item.tailY + dy, 0, totalHeight) }));
+      for (const copy of copies) constrainTail(copy, totalHeight);
+      next.bubbles.push(...copies);
       next.renderedSrc = undefined;
     });
     setSelected(id);
   }
+  function addConnectedBubble(bubble: ComicBubble) {
+    if (section.bubbles.length >= 30) return;
+    const root = bubble.parentId ? section.bubbles.find(item => item.id === bubble.parentId) : bubble;
+    if (!root || root.shape === "rectangle") return;
+    const id = newId();
+    onChange(next => {
+      const width = Math.min(320, root.width);
+      const height = 145;
+      const siblings = next.bubbles.filter(item => item.parentId === root.id).length;
+      const x = clamp(root.x + root.width * .44 + siblings * 22, 0, 800 - width);
+      const below = root.y + root.height + height * .7 <= comicHeight(next);
+      const y = clamp(below ? root.y + root.height * .62 + siblings * 18 : root.y - height * .62 - siblings * 18, 0, comicHeight(next) - height);
+      next.bubbles.push({ id, parentId: root.id, text: "MORE DIALOGUE", x: Math.round(x), y: Math.round(y), width, height, tailSide: "none", tailX: x + width / 2, tailY: y + height / 2, fontSize: root.fontSize });
+      next.renderedSrc = undefined;
+    });
+    setSelected(id);
+    requestAnimationFrame(() => inlineTextRef.current?.focus({ preventScroll: true }));
+  }
   function flipBubble(bubble: ComicBubble) {
-    updateBubble(bubble.id, item => {
+    updateBubble(bubble.id, (item, next) => {
       const imageTop = section.topSpace;
       const imageBottom = imageTop + comicImageHeight(section);
       const wasAbove = item.y + item.height / 2 < (imageTop + imageBottom) / 2;
-      item.y = clamp(imageTop + imageBottom - item.y - item.height, 0, comicHeight(section) - item.height);
+      const targetY = clamp(imageTop + imageBottom - item.y - item.height, 0, comicHeight(section) - item.height);
+      moveBubbleMembers(next, bubbleMembers(next.bubbles, item).map(member => ({ ...member })), 0, targetY - item.y);
       if (item.tailSide === "left" || item.tailSide === "right" || item.tailSide === "none") item.tailX = clamp(item.x + item.width * .55, 0, 800);
       item.tailSide = wasAbove ? "top" : "bottom";
       item.tailY = clamp(wasAbove ? item.y - 55 : item.y + item.height + 55, 0, comicHeight(section));
@@ -238,10 +281,13 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
   }
   function moveLayer(id: string, direction: -1 | 1) {
     onChange(next => {
-      const index = next.bubbles.findIndex(item => item.id === id);
+      const rootId = next.bubbles.find(item => item.id === id)?.parentId || id;
+      const roots = next.bubbles.filter(item => !item.parentId);
+      const index = roots.findIndex(item => item.id === rootId);
       const target = index + direction;
-      if (index < 0 || target < 0 || target >= next.bubbles.length) return;
-      [next.bubbles[index], next.bubbles[target]] = [next.bubbles[target], next.bubbles[index]];
+      if (index < 0 || target < 0 || target >= roots.length) return;
+      [roots[index], roots[target]] = [roots[target], roots[index]];
+      next.bubbles = roots.flatMap(root => [root, ...next.bubbles.filter(item => item.parentId === root.id)]);
       next.renderedSrc = undefined;
     });
   }
@@ -270,7 +316,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
       if (handle === "delete") { drag.current = null; removeBubble(bubble.id); event.preventDefault(); return; }
       if (handle === "duplicate") { drag.current = null; duplicateBubble(bubble); event.preventDefault(); return; }
       if (handle === "flip") { drag.current = null; flipBubble(bubble); event.preventDefault(); return; }
-      drag.current = { kind: "bubble", id: bubble.id, mode: handle === "resize" || handle === "tail" ? handle : "move", startX: point.x, startY: point.y, clientX: event.clientX, clientY: event.clientY, scale, bubble: { ...bubble } };
+      drag.current = { kind: "bubble", id: bubble.id, mode: handle === "resize" || handle === "tail" ? handle : "move", startX: point.x, startY: point.y, clientX: event.clientX, clientY: event.clientY, scale, bubble: { ...bubble }, members: bubbleMembers(section.bubbles, bubble).map(item => ({ ...item })) };
       setSelected(bubble.id);
     } else {
       const soundId = target.closest<SVGElement>("[data-sound-id]")?.getAttribute("data-sound-id");
@@ -298,12 +344,9 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
     const dy = (event.clientY - start.clientY) * start.scale;
     if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
     const point = { x: start.startX + dx, y: start.startY + dy };
-    if (start.kind === "bubble") updateBubble(start.id, bubble => {
+    if (start.kind === "bubble") updateBubble(start.id, (bubble, next) => {
       if (start.mode === "move") {
-        bubble.x = Math.round(clamp(start.bubble.x + dx, 0, 800 - start.bubble.width));
-        bubble.y = Math.round(clamp(start.bubble.y + dy, 0, comicHeight(section) - start.bubble.height));
-        bubble.tailX = Math.round(clamp(start.bubble.tailX + dx, 0, 800));
-        bubble.tailY = Math.round(clamp(start.bubble.tailY + dy, 0, comicHeight(section)));
+        moveBubbleMembers(next, start.members, dx, dy);
       } else if (start.mode === "resize") {
         bubble.width = Math.round(clamp(start.bubble.width + dx, 100, Math.min(bubble.shape === "rectangle" ? 800 : 760, 800 - bubble.x)));
         bubble.height = Math.round(clamp(start.bubble.height + dy, 70, Math.min(600, comicHeight(section) - bubble.y)));
@@ -336,14 +379,12 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
     const amount = event.shiftKey ? 10 : 1;
     const dx = event.key === "ArrowLeft" ? -amount : event.key === "ArrowRight" ? amount : 0;
     const dy = event.key === "ArrowUp" ? -amount : event.key === "ArrowDown" ? amount : 0;
-    if (activeBubble) updateBubble(activeBubble.id, bubble => { bubble.x = clamp(bubble.x + dx, 0, 800 - bubble.width); bubble.y = clamp(bubble.y + dy, 0, comicHeight(section) - bubble.height); bubble.tailX = clamp(bubble.tailX + dx, 0, 800); bubble.tailY = clamp(bubble.tailY + dy, 0, comicHeight(section)); constrainTail(bubble, comicHeight(section)); });
+    if (activeBubble) updateBubble(activeBubble.id, (bubble, next) => moveBubbleMembers(next, bubbleMembers(next.bubbles, bubble).map(item => ({ ...item })), dx, dy));
     else if (activeSound) updateSound(activeSound.id, sound => { sound.x = clamp(sound.x + dx, 0, 800); sound.y = clamp(sound.y + dy, 0, comicHeight(section)); });
   }
 
   const trashIcon = `<path d="M -6 -6 H 6 M -4 -3 V 6 M 0 -3 V 6 M 4 -3 V 6 M -7 -3 H 7 L 6 9 H -6 Z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>`;
-  const duplicateIcon = `<rect x="-7" y="-4" width="10" height="11" rx="1" fill="none" stroke="#fff" stroke-width="1.8" pointer-events="none"/><path d="M -3 -7 H 6 V 4" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" pointer-events="none"/>`;
-  const flipIcon = `<path d="M -5 -9 V 7 M -9 3 L -5 7 L -1 3 M 5 9 V -7 M 1 -3 L 5 -7 L 9 -3" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>`;
-  const bubbleOverlay = activeBubble ? `<g data-bubble-id="${escapeAttribute(activeBubble.id)}"><rect x="${activeBubble.x}" y="${activeBubble.y}" width="${activeBubble.width}" height="${activeBubble.height}" fill="transparent" stroke="#e8a650" stroke-width="2" stroke-dasharray="8 6" pointer-events="all"/><rect data-handle="resize" x="${activeBubble.x + activeBubble.width - 12}" y="${activeBubble.y + activeBubble.height - 12}" width="24" height="24" rx="3" fill="#e8a650" stroke="#171412" stroke-width="2"/>${activeBubble.tailSide !== "none" ? `<circle data-handle="tail" cx="${activeBubble.tailX}" cy="${activeBubble.tailY}" r="13" fill="#e8a650" stroke="#171412" stroke-width="2"/>` : ""}${activeBubble.shape !== "rectangle" ? `<g data-handle="flip" transform="translate(${activeBubble.x + activeBubble.width - 93} ${activeBubble.y + 17})"><title>Flip bubble above or below</title><circle r="17" fill="#66533a" stroke="#fff" stroke-width="2"/>${flipIcon}</g>` : ""}${section.bubbles.length < 30 ? `<g data-handle="duplicate" transform="translate(${activeBubble.x + activeBubble.width - 55} ${activeBubble.y + 17})"><title>Duplicate ${activeBubble.shape === "rectangle" ? "text" : "bubble"}</title><circle r="17" fill="#66533a" stroke="#fff" stroke-width="2"/>${duplicateIcon}</g>` : ""}<g data-handle="delete" transform="translate(${activeBubble.x + activeBubble.width - 17} ${activeBubble.y + 17})"><title>Delete ${activeBubble.shape === "rectangle" ? "text" : "bubble"}</title><circle r="17" fill="#a84032" stroke="#fff" stroke-width="2"/>${trashIcon}</g></g>` : "";
+  const bubbleOverlay = activeBubble ? `<g data-bubble-id="${escapeAttribute(activeBubble.id)}"><rect data-handle="move" x="${activeBubble.x - 32}" y="${activeBubble.y - 32}" width="${activeBubble.width + 64}" height="${activeBubble.height + 64}" fill="transparent" pointer-events="all"/><rect x="${activeBubble.x}" y="${activeBubble.y}" width="${activeBubble.width}" height="${activeBubble.height}" fill="transparent" stroke="#e8a650" stroke-width="2" stroke-dasharray="8 6" pointer-events="all"/><rect data-handle="resize" x="${activeBubble.x + activeBubble.width - 12}" y="${activeBubble.y + activeBubble.height - 12}" width="24" height="24" rx="3" fill="#e8a650" stroke="#171412" stroke-width="2"/>${activeBubble.tailSide !== "none" ? `<circle data-handle="tail" cx="${activeBubble.tailX}" cy="${activeBubble.tailY}" r="13" fill="#e8a650" stroke="#171412" stroke-width="2"/>` : ""}</g>` : "";
   const soundSize = activeSound ? soundBounds(activeSound) : null;
   const soundOverlay = activeSound && soundSize ? `<g data-sound-id="${escapeAttribute(activeSound.id)}" transform="translate(${activeSound.x} ${activeSound.y}) rotate(${activeSound.rotation})"><rect x="${-soundSize.width / 2}" y="${-soundSize.height / 2}" width="${soundSize.width}" height="${soundSize.height}" fill="transparent" stroke="#e8a650" stroke-width="2" stroke-dasharray="8 6" pointer-events="all"/><rect data-handle="size" x="${soundSize.width / 2 - 11}" y="${soundSize.height / 2 - 11}" width="22" height="22" rx="3" fill="#e8a650" stroke="#171412" stroke-width="2"/><circle data-handle="rotate" cx="0" cy="${-soundSize.height / 2 - 24}" r="12" fill="#e8a650" stroke="#171412" stroke-width="2"/><g data-handle="delete" transform="translate(${soundSize.width / 2 - 16} ${-soundSize.height / 2 + 16})"><title>Delete sound effect</title><circle r="17" fill="#a84032" stroke="#fff" stroke-width="2"/>${trashIcon}</g></g>` : "";
   const overlay = bubbleOverlay + soundOverlay;
@@ -361,13 +402,14 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
     {(section.bubbles.length > 0 || section.sounds.length > 0) && <div className="comic-inspector-slot">
     {!activeBubble && !activeSound && <div className="comic-inspector comic-inspector-empty"><p>Select a bubble, text panel or sound effect on the image to edit it.</p></div>}
     {activeBubble && <div className="comic-inspector" key={activeBubble.id}>
-      <div className="comic-inspector-title"><strong>{activeBubble.shape === "rectangle" ? "Selected text" : "Selected bubble"}</strong><button type="button" title="Send backward" aria-label="Send backward" disabled={section.bubbles[0]?.id === activeBubble.id} onClick={() => moveLayer(activeBubble.id, -1)}>↓</button><button type="button" title="Bring forward" aria-label="Bring forward" disabled={section.bubbles.at(-1)?.id === activeBubble.id} onClick={() => moveLayer(activeBubble.id, 1)}>↑</button>{activeBubble.shape !== "rectangle" && <button type="button" onClick={() => flipBubble(activeBubble)}>Flip above/below</button>}<button type="button" disabled={section.bubbles.length >= 30} onClick={() => duplicateBubble(activeBubble)}>Duplicate</button><button type="button" onClick={() => removeBubble(activeBubble.id)}>Delete</button></div>
+      <div className="comic-inspector-title"><strong>{activeBubble.shape === "rectangle" ? "Selected text" : activeBubble.parentId ? "Connected bubble" : activeCompanions.length ? "Main bubble" : "Selected bubble"}</strong><button type="button" title="Send backward" aria-label="Send backward" disabled={section.bubbles.filter(item => !item.parentId)[0]?.id === activeRoot?.id} onClick={() => moveLayer(activeBubble.id, -1)}>↓</button><button type="button" title="Bring forward" aria-label="Bring forward" disabled={section.bubbles.filter(item => !item.parentId).at(-1)?.id === activeRoot?.id} onClick={() => moveLayer(activeBubble.id, 1)}>↑</button></div>
+      {activeBubble.shape !== "rectangle" && <div className="comic-connected-navigation"><button type="button" aria-label="Select main bubble" aria-pressed={!activeBubble.parentId} onClick={() => setSelected(activeRoot?.id || activeBubble.id)}>Main</button>{activeCompanions.map((item, index) => <button key={item.id} type="button" aria-label={`Select connected bubble ${index + 1}`} aria-pressed={activeBubble.id === item.id} onClick={() => setSelected(item.id)}>Bubble {index + 2}</button>)}<button type="button" onClick={() => addConnectedBubble(activeBubble)} disabled={section.bubbles.length >= 30}>+ Connected bubble</button></div>}
       {!activeTextLayout?.fits && <p className="comic-error" role="status">The text does not fit. Enlarge the {activeBubble.shape === "rectangle" ? "panel" : "bubble"} or shorten the text.</p>}
       <div className="comic-control-grid">
-        {activeBubble.shape !== "rectangle" && <label>Tail <select aria-label="Bubble tail side" value={activeBubble.tailSide} onChange={event => updateBubble(activeBubble.id, bubble => { bubble.tailSide = event.target.value as ComicBubble["tailSide"]; aimTail(bubble, comicHeight(section)); })}><option value="none">None</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="left">Left</option><option value="right">Right</option></select></label>}
+        {activeBubble.shape !== "rectangle" && !activeBubble.parentId && <label>Tail <select aria-label="Bubble tail side" value={activeBubble.tailSide} onChange={event => updateBubble(activeBubble.id, bubble => { bubble.tailSide = event.target.value as ComicBubble["tailSide"]; aimTail(bubble, comicHeight(section)); })}><option value="none">None</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="left">Left</option><option value="right">Right</option></select></label>}
         <Slider label="Text size" value={activeBubble.fontSize} min={18} max={64} onChange={value => updateBubble(activeBubble.id, bubble => { bubble.fontSize = value; })} />
-        <Slider label="Horizontal position" value={activeBubble.x} min={0} max={800 - activeBubble.width} dragOnly onChange={value => updateBubble(activeBubble.id, bubble => { const delta = value - bubble.x; bubble.x = value; bubble.tailX = clamp(bubble.tailX + delta, 0, 800); constrainTail(bubble, comicHeight(section)); })} />
-        <Slider label="Vertical position" value={activeBubble.y} min={0} max={comicHeight(section) - activeBubble.height} dragOnly onChange={value => updateBubble(activeBubble.id, bubble => { const delta = value - bubble.y; bubble.y = value; bubble.tailY = clamp(bubble.tailY + delta, 0, comicHeight(section)); constrainTail(bubble, comicHeight(section)); })} />
+        <Slider label={activeCompanions.length && !activeBubble.parentId ? "Group horizontal position" : "Horizontal position"} value={activeBubble.x} min={activeMoveMinX} max={activeMoveMaxX} dragOnly onChange={value => updateBubble(activeBubble.id, (bubble, next) => moveBubbleMembers(next, bubbleMembers(next.bubbles, bubble).map(item => ({ ...item })), value - bubble.x, 0))} />
+        <Slider label={activeCompanions.length && !activeBubble.parentId ? "Group vertical position" : "Vertical position"} value={activeBubble.y} min={activeMoveMinY} max={activeMoveMaxY} dragOnly onChange={value => updateBubble(activeBubble.id, (bubble, next) => moveBubbleMembers(next, bubbleMembers(next.bubbles, bubble).map(item => ({ ...item })), 0, value - bubble.y))} />
         <Slider label="Width" value={activeBubble.width} min={100} max={activeBubbleMaxWidth} onChange={value => updateBubble(activeBubble.id, bubble => { if (bubble.shape === "rectangle") { const center = bubble.x + bubble.width / 2; bubble.width = value; bubble.x = clamp(center - value / 2, 0, 800 - value); } else bubble.width = value; constrainTail(bubble, comicHeight(section)); })} />
         <div className="comic-height-control"><Slider label="Height" value={activeBubble.height} min={70} max={Math.min(600, comicHeight(section) - activeBubble.y)} onChange={value => updateBubble(activeBubble.id, bubble => { bubble.height = value; constrainTail(bubble, comicHeight(section)); })} />{activeBubble.shape === "rectangle" && <><button type="button" title="Center text horizontally" aria-label="Center text horizontally" onClick={() => updateBubble(activeBubble.id, bubble => { bubble.x = (800 - bubble.width) / 2; })}><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M2 10h5m6 0h5M5 7l3 3-3 3m10-6-3 3 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></button><button type="button" title={verticalCenterTitle} aria-label="Center text vertically in its current space" disabled={!canCenterVertically} onClick={() => updateBubble(activeBubble.id, bubble => { const imageBottom = section.topSpace + comicImageHeight(section); bubble.y = activeBubbleZone === "above" ? Math.max(0, Math.round((section.topSpace - bubble.height) / 2)) : Math.round(imageBottom + (section.bottomSpace - bubble.height) / 2); })}><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2v5m0 6v5M7 5l3 3 3-3m-6 10 3-3 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></button></>}</div>
       </div>
@@ -394,8 +436,14 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
     <div className={`comic-stage-wrap${fileOver ? " is-file-over" : ""}${!section.src ? " is-empty" : ""}`} onDragEnter={dragOverImage} onDragOver={dragOverImage} onDragLeave={dragLeaveImage} onDrop={dropImage}>
       {!emptyImage && <div className="comic-source-row" aria-label="Image source"><button type="button" onClick={() => setPicker(value => !value)}>{section.src ? "Replace from library" : "Choose from library"}</button><label className="comic-upload">{uploading ? "Uploading…" : "Upload image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadFile(file); }} /></label></div>}
       {emptyImage ? <div className="sb-image-placeholder sb-file-dropzone comic-empty-drop" role="group" aria-label="Comic image drop zone"><svg className="sb-drop-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 4v15m0 0-5-5m5 5 5-5M6 23v4h20v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg><p>{uploading ? "Uploading…" : fileOver ? "Release to add image" : "Drop image here"}</p><button type="button" onClick={() => setPicker(value => !value)}>Choose from image library</button><label className="sb-upload">Upload image<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadFile(file); }} /></label></div> :
-      <div ref={canvasRef} className="comic-stage" style={{ maxWidth: mobile ? 390 : 600 }} role="group" tabIndex={0} aria-label="Comic composition canvas" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onLostPointerCapture={() => { drag.current = null; }} onKeyDown={keyDown}>
+      <div ref={canvasRef} className="comic-stage" style={{ maxWidth: mobile ? 312 : 480 }} role="group" tabIndex={0} aria-label="Comic composition canvas" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onLostPointerCapture={() => { drag.current = null; }} onKeyDown={keyDown}>
         <div dangerouslySetInnerHTML={{ __html: svg }} />
+        {activeBubble && <div className="comic-bubble-tools" style={{ left: `${(activeBubble.x + activeBubble.width) / 8}%`, top: `${activeBubble.y / comicHeight(section) * 100}%` }} onPointerDown={event => event.stopPropagation()}>
+          {activeBubble.shape !== "rectangle" && !activeBubble.parentId && <button type="button" title="Flip bubble above or below" aria-label="Flip bubble above or below" onClick={() => flipBubble(activeBubble)}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 2v16m0 0-4-4m4 4 4-4M14 18V2m0 0-4 4m4-4 4 4" /></svg></button>}
+          {activeBubble.shape !== "rectangle" && <button type="button" title="Add connected bubble" aria-label="Add connected bubble" disabled={section.bubbles.length >= 30} onClick={() => addConnectedBubble(activeBubble)}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v14M3 10h14" /></svg></button>}
+          <button type="button" title={`Duplicate ${activeBubble.shape === "rectangle" ? "text" : "bubble"}`} aria-label={`Duplicate ${activeBubble.shape === "rectangle" ? "text" : "bubble"}`} disabled={section.bubbles.length + bubbleMembers(section.bubbles, activeBubble).length > 30} onClick={() => duplicateBubble(activeBubble)}><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="6" width="10" height="11" rx="1"/><path d="M7 3h10v11" /></svg></button>
+          <button type="button" title={`Delete ${activeBubble.shape === "rectangle" ? "text" : "bubble"}`} aria-label={`Delete ${activeBubble.shape === "rectangle" ? "text" : "bubble"}`} className="comic-bubble-tool-delete" onClick={() => removeBubble(activeBubble.id)}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 3h4m-7 3 1 11h8l1-11M8 9v6m4-6v6" /></svg></button>
+        </div>}
         {activeBubble && activeTextLayout && <textarea ref={inlineTextRef} className="comic-inline-text" aria-label={activeBubble.shape === "rectangle" ? "Edit text in panel" : "Edit dialogue in bubble"} value={activeBubble.text} maxLength={1500} style={{ left: `${(activeBubble.x + (activeBubble.shape === "rectangle" ? 28 : activeBubble.width * .14)) / 8}%`, top: `${(activeBubble.y + (activeBubble.shape === "rectangle" ? 16 : activeBubble.height * .16)) / comicHeight(section) * 100}%`, width: `${(activeBubble.shape === "rectangle" ? activeBubble.width - 56 : activeBubble.width * .72) / 8}%`, height: `${(activeBubble.shape === "rectangle" ? activeBubble.height - 32 : activeBubble.height * .68) / comicHeight(section) * 100}%`, fontSize: `${activeTextLayout.size / 8}cqw`, paddingTop: `${Math.max(0, activeBubble.height * .34 - activeTextLayout.lines.length * activeTextLayout.size * 1.08 / 2) / 8}cqw` }} onChange={event => updateBubble(activeBubble.id, bubble => { bubble.text = event.target.value; })} onPointerDown={event => event.stopPropagation()} />}
         {activeSound && soundSize && <textarea ref={inlineSoundRef} className="comic-inline-sound" aria-label="Edit sound effect on image" value={activeSound.text} maxLength={100} style={{ left: `${activeSound.x / 8}%`, top: `${activeSound.y / comicHeight(section) * 100}%`, width: `${Math.max(80, soundSize.width - 48) / 8}%`, height: `${Math.max(activeSound.fontSize, soundSize.height - 30) / comicHeight(section) * 100}%`, fontSize: `${activeSound.fontSize / 8}cqw`, transform: `translate(-50%, -50%) rotate(${activeSound.rotation}deg)` }} onChange={event => updateSound(activeSound.id, sound => { sound.text = event.target.value; })} onPointerDown={event => event.stopPropagation()} />}
       </div>}

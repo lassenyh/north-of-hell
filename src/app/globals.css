@@ -1,4 +1,5 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../";
 
 @font-face {
   font-family: "Jack Armstrong";

@@ -142,18 +142,34 @@ export function updateComicSpace(section: ComicSection, side: "above" | "below",
 export function renderComicSvg(section: ComicSection, imageHref = section.src, textPath?: ComicTextPath, editingBubbleId?: string) {
   const height = comicHeight(section);
   const imageHeight = comicImageHeight(section);
-  const bubbles = section.bubbles.map(bubble => {
+  const maskPrefix = `comic-join-${[...section.id].map(char => char.codePointAt(0)!.toString(16)).join("-")}`;
+  const lettering = (bubble: ComicBubble) => {
     const text = layoutBubbleText(bubble);
     const lineHeight = text.size * 1.08;
     const firstY = bubble.y + bubble.height * .5 - (text.lines.length - 1) * lineHeight / 2 + text.size * .34;
-    const lettering = textPath
+    const content = textPath
       ? text.lines.map((line, index) => `<path d="${textPath(line, bubble.x + bubble.width / 2, firstY + index * lineHeight, text.size)}" fill="#171412"/>`).join("")
       : `<text fill="#171412" font-family="Jack Armstrong, sans-serif" font-size="${text.size}" font-weight="400" text-anchor="middle">${text.lines.map((line, index) => `<tspan x="${bubble.x + bubble.width / 2}" y="${firstY + index * lineHeight}">${xml(line || " ")}</tspan>`).join("")}</text>`;
-    const visibleLettering = bubble.id === editingBubbleId ? "" : lettering;
-    if (bubble.shape === "rectangle") return `<g data-bubble-id="${xml(bubble.id)}"><rect x="${bubble.x + 1.7}" y="${bubble.y + 1.7}" width="${bubble.width - 3.4}" height="${bubble.height - 3.4}" fill="#fff" stroke="#171412" stroke-width="3.4"/>${visibleLettering}</g>`;
+    return bubble.id === editingBubbleId ? "" : content;
+  };
+  const standalone = (bubble: ComicBubble) => {
+    if (bubble.shape === "rectangle") return `<g data-bubble-id="${xml(bubble.id)}"><rect x="${bubble.x + 1.7}" y="${bubble.y + 1.7}" width="${bubble.width - 3.4}" height="${bubble.height - 3.4}" fill="#fff" stroke="#171412" stroke-width="3.4"/>${lettering(bubble)}</g>`;
     const outline = bubbleOutline(bubble);
     const accents = outline.accents.map(path => `<path d="${path}" fill="none" stroke="#171412" stroke-width="4.8" stroke-linecap="round" opacity=".7"/>`).join("");
-    return `<g data-bubble-id="${xml(bubble.id)}"><path d="${outline.path}" fill="#fff" stroke="#171412" stroke-width="3.4" stroke-linejoin="round"/>${accents}${visibleLettering}</g>`;
+    return `<g data-bubble-id="${xml(bubble.id)}"><path d="${outline.path}" fill="#fff" stroke="#171412" stroke-width="3.4" stroke-linejoin="round"/>${accents}${lettering(bubble)}</g>`;
+  };
+  const bubbles = section.bubbles.filter(bubble => !bubble.parentId || !section.bubbles.some(parent => parent.id === bubble.parentId)).map((bubble, groupIndex) => {
+    const companions = section.bubbles.filter(item => item.parentId === bubble.id);
+    if (!companions.length || bubble.shape === "rectangle") return standalone(bubble);
+    const members = [bubble, ...companions];
+    const paths = members.map(item => bubbleOutline(item).path);
+    // Each outline is visible only outside the other shapes. The fills and text
+    // are drawn separately so the join has no internal stroke or text occlusion.
+    const masks = paths.map((_, index) => `<mask id="${maskPrefix}-${groupIndex}-${index}" maskUnits="userSpaceOnUse" x="0" y="0" width="800" height="${height}"><rect width="800" height="${height}" fill="#fff"/>${paths.filter((__, other) => other !== index).map(path => `<path d="${path}" fill="#000"/>`).join("")}</mask>`).join("");
+    const fills = members.map((item, index) => `<g data-bubble-id="${xml(item.id)}"><path d="${paths[index]}" fill="#fff"/></g>`).join("");
+    const outlines = members.map((item, index) => `<path d="${paths[index]}" fill="none" stroke="#171412" stroke-width="3.4" stroke-linejoin="round" mask="url(#${maskPrefix}-${groupIndex}-${index})" pointer-events="none"/>`).join("");
+    const texts = members.map(item => `<g data-bubble-id="${xml(item.id)}">${lettering(item)}</g>`).join("");
+    return `<g><defs>${masks}</defs>${fills}${outlines}${texts}</g>`;
   }).join("");
   const sounds = section.sounds.map(sound => {
     const bounds = soundBounds(sound);

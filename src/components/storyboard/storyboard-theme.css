@@ -36,6 +36,8 @@
 .storyboard-theme--light .sb-layers{background:#f7f6f3;border-color:#e4e0d8}
 .storyboard-theme--light .sb-panel-heading h2,.storyboard-theme--light .sb-muted,.storyboard-theme--light .sb-canvas-top span{color:#6d665c}
 .storyboard-theme--light .sb-layer-chapter{background:#fff;border-color:#ded8ce}
+.storyboard-theme--light .sb-layer-drop-preview{background:#f9eddd;border-color:#b88a55;color:#302920;box-shadow:0 0 0 2px #b88a5522}
+.storyboard-theme--light .sb-layer-drop-preview span{color:#87562c}
 .storyboard-theme--light .sb-layer-row.is-selected{background:#f4e5cf}
 .storyboard-theme--light .sb-layer-row>button:not(.sb-layer-label),.storyboard-theme--light .sb-edit-heading button,.storyboard-theme--light .sb-edit-section-head button{color:#665c50}
 .storyboard-theme--light .sb-layer-label,.storyboard-theme--light .sb-chapter-row .sb-layer-label{color:#27231e}
@@ -83,8 +85,9 @@
 .storyboard-theme--light .comic-inspector-empty p{color:#625b51}
 
 .storyboard-theme--light .storyboard-document{background:#fff;color:#24211d}
-.storyboard-theme--light .storyboard-document-header,.storyboard-theme--light .storyboard-chapter-header{border-color:#ddd8ce}
-.storyboard-theme--light .storyboard-chapter-header span,.storyboard-theme--light .storyboard-section>h3{color:#87562c}
+.storyboard-theme--light .storyboard-document-header{border-color:#ddd8ce}
+.storyboard-theme--light .storyboard-chapter-header h2{background:#f1f1f1;border-color:#d9dbdd;color:#74777b}
+.storyboard-theme--light .storyboard-section>h3{color:#87562c}
 .storyboard-theme--light .storyboard-prose,.storyboard-theme--light .storyboard-script,.storyboard-theme--light .storyboard-image-grid figcaption{color:#302d28}
 .storyboard-theme--light .storyboard-section--screenplay::before,.storyboard-theme--light .storyboard-section--screenplay::after{background:#ded8ce}
 .storyboard-theme--light .storyboard-jump,.storyboard-theme--light .storyboard-jump--icon nav,.storyboard-theme--light .storyboard-fullscreen-button,.storyboard-theme--light .storyboard-theme-button,.storyboard-theme--light .storyboard-fullscreen-error{background:#fff;color:#29251f;border-color:#d5cfc4;box-shadow:0 5px 20px #0002}

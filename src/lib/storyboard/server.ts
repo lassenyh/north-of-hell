@@ -8,7 +8,7 @@ import { getStoryboardFrames, PROJECT_SLUG, type StoryboardFrame } from "@/lib/s
 import { getComicFrames } from "@/lib/comic-frames";
 import { emptyDocument, importLegacyFrames, parseDocument, type StoryboardDocument, type StoryboardState } from "./model";
 import { publishComicImage } from "./comic-render";
-import { COMIC_RENDER_VERSION, layoutBubbleText } from "./comic-svg";
+import { prepareComicPublication, renderComicJobs } from "./comic-publication";
 import { storyboardLocalMode } from "./mode";
 
 const localPath = storyboardLocalMode && process.env.STORYBOARD_LOCAL_STATE_PATH
@@ -102,27 +102,8 @@ export async function publishStoryboardDraft(expectedVersion: number) {
   const state = await loadStoryboardState();
   if (expectedVersion === 0 || state.draftVersion !== expectedVersion) throw new Error("Save the latest draft before publishing.");
   const now = new Date().toISOString();
-  const published = structuredClone(state.draft);
-  for (const chapter of published.chapters) for (const section of chapter.sections) {
-    if (section.kind !== "comic" || !section.src) continue;
-    const overflowing = section.bubbles.find(bubble => !layoutBubbleText(bubble).fits);
-    if (overflowing) throw new Error(`Text does not fit a ${overflowing.shape === "rectangle" ? "text panel" : "bubble"} in “${section.title}”. Enlarge it or shorten the text.`);
-    const previous = state.published?.chapters.flatMap(item => item.sections).find(item => item.id === section.id);
-    if (previous?.kind === "comic" && previous.renderedSrc && previous.renderVersion === COMIC_RENDER_VERSION) {
-      const oldContent = { ...previous, renderedSrc: undefined, renderVersion: undefined };
-      const newContent = { ...section, renderedSrc: undefined, renderVersion: undefined };
-      if (JSON.stringify(oldContent) === JSON.stringify(newContent)) {
-        section.renderedSrc = previous.renderedSrc;
-        section.renderVersion = COMIC_RENDER_VERSION;
-        continue;
-      }
-    }
-    const rendered = await publishComicImage(section);
-    section.renderedSrc = rendered.src;
-    section.renderVersion = COMIC_RENDER_VERSION;
-    section.imageWidth = rendered.imageWidth;
-    section.imageHeight = rendered.imageHeight;
-  }
+  const { published, renderJobs } = prepareComicPublication(state.draft, state.published);
+  await renderComicJobs(renderJobs, publishComicImage);
   const db = database();
   if (db) {
     const { data, error } = await db.from("storyboard_documents").update({ published, published_version: expectedVersion, published_at: now })

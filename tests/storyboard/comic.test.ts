@@ -27,6 +27,35 @@ test("comic document retains editable source and bubbles, and duplicates get uni
   assert.equal(copiedSection.bubbles[0].text, "Hello, world!");
 });
 
+test("connected bubbles keep independent geometry and text through saving and duplication", async () => {
+  const sample = section();
+  sample.bubbles.push({ id: "bubble-2", parentId: "bubble-1", text: "Second thought", x: 270, y: 155, width: 300, height: 210, tailSide: "none", tailX: 420, tailY: 260, fontSize: 28 });
+  const doc: StoryboardDocument = { schemaVersion: 1, title: "Story", chapters: [{ id: "chapter-1", title: "Opening", sections: [sample] }] };
+  assert.deepEqual(parseDocument(doc), doc);
+  const duplicate = duplicateChapter(doc.chapters[0]).sections[0];
+  assert.equal(duplicate.kind, "comic");
+  if (duplicate.kind !== "comic") return;
+  assert.equal(duplicate.bubbles[1].parentId, duplicate.bubbles[0].id);
+  assert.notEqual(duplicate.bubbles[1].id, sample.bubbles[1].id);
+  assert.equal(duplicate.bubbles[1].width, 300);
+  assert.equal(duplicate.bubbles[1].text, "Second thought");
+  const svg = renderComicSvg(sample, "", comicTextPath);
+  assert.match(svg, /comic-join-[0-9a-f-]+-0-0/);
+  assert.doesNotMatch(svg, /<text\b|<tspan\b/);
+  assert.equal((await sharp(Buffer.from(svg)).metadata()).width, 800);
+});
+
+test("overlapping connected bubbles have one clean exterior outline", async () => {
+  const sample = section();
+  sample.bubbles[0] = { ...sample.bubbles[0], text: "", x: 100, y: 80, width: 380, height: 220, tailSide: "none" };
+  sample.bubbles.push({ id: "bubble-2", parentId: "bubble-1", text: "", x: 260, y: 190, width: 360, height: 240, tailSide: "none", tailX: 440, tailY: 310, fontSize: 36 });
+  const { data, info } = await sharp(Buffer.from(renderComicSvg(sample, "", comicTextPath))).raw().toBuffer({ resolveWithObject: true });
+  for (let y = 275; y <= 320; y += 5) {
+    const index = (y * info.width + 360) * info.channels;
+    assert.ok(data[index] > 245 && data[index + 1] > 245 && data[index + 2] > 245, `interior join at y=${y} should be white`);
+  }
+});
+
 test("comic dimensions keep original image aspect ratio inside the composed strip", () => {
   const sample = section();
   assert.equal(comicImageHeight(sample), 450);
