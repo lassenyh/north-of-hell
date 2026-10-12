@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 import { loadStoryboardState, requireStoryboardEditor } from "@/lib/storyboard/server";
+import { storyboardSnapshotUsesAsset } from "@/lib/storyboard/share-server";
 import { hiddenLibraryPath, libraryChapterKey, libraryMarkerPng, listStoryboardLibraryData } from "@/lib/storyboard/library";
 import { localStoryboardUpload, storyboardLocalMode } from "@/lib/storyboard/mode";
 
@@ -100,6 +101,9 @@ export async function DELETE(request: Request) {
         : section.kind === "comic" && section.src === src))) {
         return NextResponse.json({ error: "This image is used in the draft or published storyboard. Remove or replace it there first." }, { status: 409 });
       }
+    }
+    if (await storyboardSnapshotUsesAsset(src)) {
+      return NextResponse.json({ error: "This image is used by a fixed share link and cannot be deleted." }, { status: 409 });
     }
     if (!storyboardLocalMode && url && key) {
       const storage = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } }).storage.from("storyboard-images");

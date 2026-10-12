@@ -13,6 +13,7 @@ import { StoryboardDocumentView, SectionContent, cleanTextHtml } from "./Storybo
 import { ComicSectionEditor } from "./ComicSectionEditor";
 import { VideoSectionEditor } from "./VideoSectionEditor";
 import { StoryboardLibraryDialog } from "./StoryboardLibraryDialog";
+import { StoryboardShareDialog } from "./StoryboardShareDialog";
 import { StoryboardLibraryUpload } from "./StoryboardLibraryUpload";
 import { libraryChapter as libraryChapterOf } from "@/lib/storyboard/library-chapter";
 import { COMIC_RENDER_VERSION } from "@/lib/storyboard/comic-svg";
@@ -88,6 +89,7 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
   const [showHiddenLibrary, setShowHiddenLibrary] = useState(false);
   const [libraryChapters, setLibraryChapters] = useState(initialLibraryChapters);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [libraryError, setLibraryError] = useState("");
   const [deletingLibraryImage, setDeletingLibraryImage] = useState<string | null>(null);
   const [libraryFilter, setLibraryFilter] = useState("");
@@ -97,6 +99,8 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
   const [draggingLayer, setDraggingLayer] = useState<Drag | null>(null);
   const [layerDropPreview, setLayerDropPreview] = useState<LayerDropPreview | null>(null);
   const layerDropPreviewRef = useRef<LayerDropPreview | null>(null);
+  const [canvasDropPreview, setCanvasDropPreview] = useState<LayerDropPreview | null>(null);
+  const canvasDropPreviewRef = useRef<LayerDropPreview | null>(null);
   const addLibraryChapter = (chapter: string) => setLibraryChapters(current => current.includes(chapter) ? current : [...current, chapter].sort());
   const addLibraryImage = (src: string) => { setLibrary(current => current.includes(src) ? current : [...current, src]); addLibraryChapter(libraryChapterOf(src)); };
   const visibleLibrary = [...library, ...(showHiddenLibrary ? hiddenLibrary : [])].filter(src => (!libraryFilter || libraryChapterOf(src) === libraryFilter) && src.toLowerCase().includes(librarySearch.toLowerCase()));
@@ -224,7 +228,7 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     change(doc => {
       const ch = doc.chapters.find(c => c.id === chapterId);
       if (!ch) return;
-      const section: Section = kind === "text" ? { id, kind, title: "New text section", html: "<p></p>", align: "left", size: 16 }
+      const section: Section = kind === "text" ? { id, kind, title: "New text section", html: "<p></p>", align: "left", size: 18 }
         : kind === "screenplay" ? { id, kind, title: "New screenplay section", blocks: [{ type: "scene_heading", text: "" }] }
         : kind === "images" ? { id, kind, title: "New image section", layout: "single", images: [] }
         : kind === "video" ? { id, kind, title: "New video section", src: "" }
@@ -277,15 +281,25 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     layerDropPreviewRef.current = preview;
     setLayerDropPreview(preview);
   }
+  function setCanvasPreview(preview: LayerDropPreview | null) {
+    const current = canvasDropPreviewRef.current;
+    if (!current && !preview) return;
+    if (current?.kind === "chapter" && preview?.kind === "chapter" && current.targetId === preview.targetId && current.after === preview.after) return;
+    if (current?.kind === "section" && preview?.kind === "section" && current.chapterId === preview.chapterId && current.targetId === preview.targetId && current.after === preview.after) return;
+    canvasDropPreviewRef.current = preview;
+    setCanvasDropPreview(preview);
+  }
   function clearDrag() {
     drag.current = null;
     setDraggingLayer(null);
     setLayerPreview(null);
+    setCanvasPreview(null);
   }
   function startDrag(event: React.DragEvent, item: Drag) {
     drag.current = item;
     setDraggingLayer(item.kind === "image" ? null : item);
     setLayerPreview(null);
+    setCanvasPreview(null);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", item.id);
   }
@@ -293,6 +307,7 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
   function previewLayerDrop(event: React.DragEvent, chapterId: string, targetId?: string) {
     const item = drag.current;
     if (!item || item.kind === "image") return;
+    setCanvasPreview(null);
     allowDrop(event);
     if (item.kind === "chapter") {
       if (item.id === chapterId) { setLayerPreview(null); return; }
@@ -307,6 +322,42 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
       setLayerPreview({ kind: "section", chapterId, targetId, after: event.clientY > rect.top + rect.height / 2 });
     } else setLayerPreview({ kind: "section", chapterId, after: false });
   }
+  function previewCanvasChapterDrop(event: React.DragEvent, chapter: Chapter) {
+    const item = drag.current;
+    if (!item || item.kind === "image") return;
+    setLayerPreview(null);
+    allowDrop(event);
+    if (item.kind === "chapter") {
+      if (item.id === chapter.id) { setCanvasPreview(null); return; }
+      const heading = event.currentTarget.querySelector<HTMLElement>(".sb-edit-heading");
+      const midpoint = heading ? heading.getBoundingClientRect().top + heading.getBoundingClientRect().height / 2 : event.currentTarget.getBoundingClientRect().top;
+      setCanvasPreview({ kind: "chapter", targetId: chapter.id, after: event.clientY > midpoint });
+      return;
+    }
+    const target = event.target;
+    const overHeading = target instanceof Element && !!target.closest(".sb-edit-heading,.sb-title-input,.sb-edit-chapter > h2");
+    setCanvasPreview(overHeading && chapter.sections.length
+      ? { kind: "section", chapterId: chapter.id, targetId: chapter.sections[0].id, after: false }
+      : { kind: "section", chapterId: chapter.id, after: false });
+  }
+  function previewCanvasSectionDrop(event: React.DragEvent, chapterId: string, sectionId: string) {
+    if (drag.current?.kind !== "section") return;
+    event.stopPropagation();
+    setLayerPreview(null);
+    allowDrop(event);
+    if (drag.current.id === sectionId) { setCanvasPreview(null); return; }
+    const rect = event.currentTarget.getBoundingClientRect();
+    setCanvasPreview({ kind: "section", chapterId, targetId: sectionId, after: event.clientY > rect.top + rect.height / 2 });
+  }
+  function dropOnCanvas(event: React.DragEvent) {
+    const item = drag.current;
+    if (!item || item.kind === "image") return;
+    event.preventDefault(); event.stopPropagation();
+    const preview = canvasDropPreviewRef.current;
+    clearDrag();
+    if (item.kind === "chapter" && preview?.kind === "chapter") moveChapter(item.id, preview.targetId, preview.after);
+    if (item.kind === "section" && preview?.kind === "section") moveSection(item.id, preview.chapterId, preview.targetId, preview.after);
+  }
   function dropOnLayers(event: React.DragEvent) {
     event.preventDefault(); event.stopPropagation();
     const item = drag.current;
@@ -314,17 +365,6 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     clearDrag();
     if (item?.kind === "chapter" && preview?.kind === "chapter") moveChapter(item.id, preview.targetId, preview.after);
     if (item?.kind === "section" && preview?.kind === "section") moveSection(item.id, preview.chapterId, preview.targetId, preview.after);
-  }
-  function dropChapter(event: React.DragEvent, chapterId: string) {
-    event.preventDefault(); event.stopPropagation();
-    const item = drag.current; clearDrag();
-    if (item?.kind === "chapter") moveChapter(item.id, chapterId, event.clientY > event.currentTarget.getBoundingClientRect().top + event.currentTarget.getBoundingClientRect().height / 2);
-    if (item?.kind === "section") moveSection(item.id, chapterId);
-  }
-  function dropSection(event: React.DragEvent, chapterId: string, sectionId: string) {
-    event.preventDefault(); event.stopPropagation();
-    const item = drag.current; clearDrag();
-    if (item?.kind === "section") moveSection(item.id, chapterId, sectionId, event.clientY > event.currentTarget.getBoundingClientRect().top + event.currentTarget.getBoundingClientRect().height / 2);
   }
   function moveByButton(id: string, direction: -1 | 1) {
     const ci = document.chapters.findIndex(c => c.id === id);
@@ -416,6 +456,7 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
   const draggedSection = draggingLayer?.kind === "section" ? document.chapters.flatMap(chapter => chapter.sections).find(section => section.id === draggingLayer.id) : null;
   const draggedChapter = draggingLayer?.kind === "chapter" ? document.chapters.find(chapter => chapter.id === draggingLayer.id) : null;
   const layerPlaceholder = () => <div className="sb-layer-drop-preview" aria-hidden="true" onDragOver={event => { event.stopPropagation(); allowDrop(event); }}><span>{draggedSection ? sectionNames[draggedSection.kind] : "Chapter"}</span><strong>{draggedSection?.title || draggedChapter?.title}</strong></div>;
+  const canvasPlaceholder = (kind: "chapter" | "section") => <div className={`sb-canvas-drop-preview sb-canvas-drop-preview--${kind}`} aria-hidden="true" onDragOver={event => { event.stopPropagation(); allowDrop(event); }}><span>{kind === "chapter" ? "Move chapter here" : "Move section here"}</span><strong>{draggedSection?.title || draggedChapter?.title}</strong></div>;
   const sectionRow = (section: Section, chapter: Chapter) => (
     <div className={`sb-layer-section${draggingLayer?.kind === "section" && draggingLayer.id === section.id ? " is-dragging" : ""}`}><div id={`layer-${section.id}`} className={`sb-layer-row sb-section-row ${selectedId === section.id ? "is-selected" : ""}`}
       onDragOver={event => { if (drag.current?.kind === "section") { event.stopPropagation(); previewLayerDrop(event, chapter.id, section.id); } }}>
@@ -440,12 +481,13 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     <header className="sb-topbar">
       <div><p className="sb-kicker">NORTH OF HELL / STORYBOARD</p><h1>Storyboard studio</h1></div>
       <nav className="sb-tabs" aria-label="Storyboard view"><button type="button" aria-current={tab === "preview" ? "page" : undefined} onClick={() => switchView("preview")} title="Preview draft (P)">Preview <span className="sb-tab-shortcut" aria-hidden="true">P</span></button><button type="button" aria-current={tab === "editor" ? "page" : undefined} onClick={() => switchView("editor")} title="Return to editor (P)">Editor</button></nav>
-      <div className="sb-save-actions"><span className={`sb-status ${dirty ? "dirty" : ""}`} role="status" title={dirty ? "Automatically saves after 2 minutes without editing" : undefined}>{status}</span><button type="button" onClick={() => void save()} disabled={!!busy || savePending || !dirty && version > 0}>{busy === "save" ? "Saving…" : savePending ? "Save pending…" : "Save draft"}</button><button type="button" className="primary" onClick={publish} disabled={!!busy || savePending || !!saveRequest.current || dirty || version === 0 || publishedVersion === version && !outdatedComic}>{busy === "publish" ? "Publishing…" : "Publish"}</button></div>
+      <div className="sb-save-actions"><span className={`sb-status ${dirty ? "dirty" : ""}`} role="status" title={dirty ? "Automatically saves after 2 minutes without editing" : undefined}>{status}</span><button type="button" onClick={() => void save()} disabled={!!busy || savePending || !dirty && version > 0}>{busy === "save" ? "Saving…" : savePending ? "Save pending…" : "Save draft"}</button><button type="button" className="primary" onClick={publish} disabled={!!busy || savePending || !!saveRequest.current || dirty || version === 0 || publishedVersion === version && !outdatedComic}>{busy === "publish" ? "Publishing…" : "Publish"}</button><button type="button" onClick={() => setShareOpen(true)} disabled={!published} title={published ? "Share the latest published storyboard" : "Publish a storyboard before sharing"}>Share</button></div>
     </header>
+    {shareOpen && <StoryboardShareDialog onClose={() => setShareOpen(false)} />}
     {(error || flash) && <div className={error ? "sb-message error" : "sb-message"} role={error ? "alert" : "status"}>{error || flash}</div>}
     {tab === "preview" ? <div className="sb-finished"><div className="sb-finished-note"><span>Draft preview{dirty ? " · Includes unsaved changes" : ""}</span><Link href="/storyboard" target="_blank">Open published page ↗</Link></div><StoryboardDocumentView document={document} preview /></div> : <>
       <div className="sb-workspace">
-        <aside className="sb-layers" onDragOver={event => { allowDrop(event); if (event.target instanceof Element && !event.target.closest(".sb-layer-chapter,.sb-layer-drop-preview")) setLayerPreview(null); }} onDragLeave={event => { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) setLayerPreview(null); }} onDrop={dropOnLayers}><div className="sb-panel-heading"><h2>Layers</h2><button type="button" onClick={addChapter}>+ Chapter</button></div><button type="button" className="sb-open-library" onClick={() => setLibraryOpen(true)}>Image library · Upload frames</button>
+        <aside className="sb-layers" onDragOver={event => { allowDrop(event); setCanvasPreview(null); if (event.target instanceof Element && !event.target.closest(".sb-layer-chapter,.sb-layer-drop-preview")) setLayerPreview(null); }} onDragLeave={event => { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) setLayerPreview(null); }} onDrop={dropOnLayers}><div className="sb-panel-heading"><h2>Layers</h2><button type="button" onClick={addChapter}>+ Chapter</button></div><button type="button" className="sb-open-library" onClick={() => setLibraryOpen(true)}>Image library · Upload frames</button>
           {document.chapters.length === 0 && <p className="sb-muted">Start with a chapter.</p>}
           {document.chapters.map((chapter, index) => <Fragment key={chapter.id}>
             {layerDropPreview?.kind === "chapter" && layerDropPreview.targetId === chapter.id && !layerDropPreview.after && layerPlaceholder()}
@@ -466,19 +508,28 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
             {layerDropPreview?.kind === "chapter" && layerDropPreview.targetId === chapter.id && layerDropPreview.after && layerPlaceholder()}
           </Fragment>)}
         </aside>
-        <main className="sb-canvas"><div className="sb-canvas-top"><label>Document title<input aria-label="Document title" value={document.title} onChange={event => change(doc => { doc.title = event.target.value; })} /></label><span>{document.chapters.length} chapters</span></div>
-          {document.chapters.map((chapter, index) => <article key={chapter.id} id={`edit-${chapter.id}`} className={`sb-edit-chapter ${selectedId === chapter.id ? "is-selected" : ""}`} onDragOver={allowDrop} onDrop={event => dropChapter(event,chapter.id)} onClick={() => select(chapter.id)}>
+        <main className="sb-canvas" onDragOver={event => { setLayerPreview(null); if (drag.current?.kind !== "image" && event.target instanceof Element && !event.target.closest(".sb-edit-chapter,.sb-canvas-drop-preview")) setCanvasPreview(null); }} onDragLeave={event => { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) setCanvasPreview(null); }} onDrop={dropOnCanvas}><div className="sb-canvas-top"><label>Document title<input aria-label="Document title" value={document.title} onChange={event => change(doc => { doc.title = event.target.value; })} /></label><span>{document.chapters.length} chapters</span></div>
+          {document.chapters.map((chapter, index) => <Fragment key={chapter.id}>
+          {canvasDropPreview?.kind === "chapter" && canvasDropPreview.targetId === chapter.id && !canvasDropPreview.after && canvasPlaceholder("chapter")}
+          <article id={`edit-${chapter.id}`} className={`sb-edit-chapter ${selectedId === chapter.id ? "is-selected" : ""}${draggingLayer?.kind === "chapter" && draggingLayer.id === chapter.id ? " is-dragging" : ""}`} onDragOver={event => previewCanvasChapterDrop(event, chapter)} onClick={() => select(chapter.id)}>
             <div className="sb-edit-heading"><button type="button" className="sb-grip" draggable onDragStart={event => startDrag(event,{kind:"chapter",id:chapter.id})} aria-label={`Drag chapter ${chapter.title}`}>⋮⋮</button><span>CHAPTER {String(index+1).padStart(2,"0")}</span><button type="button" onClick={() => duplicate(chapter.id)}>Duplicate</button><button type="button" onClick={() => remove(chapter.id)}>Delete</button></div>
             {selectedId === chapter.id ? <input className="sb-title-input" aria-label="Chapter title" value={chapter.title} onChange={event => updateChapter(chapter.id,c => { c.title = event.target.value; })} onClick={event => event.stopPropagation()} /> : <h2>{chapter.title}</h2>}
-            {expandedChapters.includes(chapter.id) ? chapter.sections.map(section => <section key={section.id} id={`edit-${section.id}`} className={`sb-edit-section sb-edit-section--${section.kind} ${selectedId === section.id ? "is-selected" : ""}`} onDragOver={allowDrop} onDrop={event => dropSection(event,chapter.id,section.id)} onClick={event => { event.stopPropagation(); if (selectedId !== section.id) select(section.id); }}>
+            {expandedChapters.includes(chapter.id) ? chapter.sections.map(section => <Fragment key={section.id}>
+              {canvasDropPreview?.kind === "section" && canvasDropPreview.chapterId === chapter.id && canvasDropPreview.targetId === section.id && !canvasDropPreview.after && canvasPlaceholder("section")}
+              <section id={`edit-${section.id}`} className={`sb-edit-section sb-edit-section--${section.kind} ${selectedId === section.id ? "is-selected" : ""}${draggingLayer?.kind === "section" && draggingLayer.id === section.id ? " is-dragging" : ""}`} onDragOver={event => previewCanvasSectionDrop(event,chapter.id,section.id)} onClick={event => { event.stopPropagation(); if (selectedId !== section.id) select(section.id); }}>
               <div className="sb-edit-section-head"><button type="button" className="sb-grip" draggable onDragStart={event => startDrag(event,{kind:"section",id:section.id})} aria-label={`Drag ${section.title}`}>⋮⋮</button>{selectedId !== section.id ? <div className="sb-section-compact-copy"><span>{sectionNames[section.kind]}</span><h3>{section.title}</h3>{section.kind === "comic" && <p className="sb-comic-summary">{comicSummary(section)}</p>}{section.kind === "video" && <p className="sb-comic-summary">16:9 video</p>}{section.kind === "images" && <p className="sb-image-summary">{section.images.length} of {capacity[section.layout]} images</p>}{(section.kind === "text" || section.kind === "screenplay") && sectionExcerpt(section) && <p className="sb-section-excerpt">{sectionExcerpt(section)}</p>}</div> : <span>{sectionNames[section.kind]}</span>}{selectedId === section.id && section.kind === "comic" && <input className="sb-section-title-input" aria-label="Section title" value={section.title} onChange={event => updateSection(section.id,s => { s.title = event.target.value; })} />}{selectedId !== section.id && (section.kind === "comic" || section.kind === "video") && <SectionContent section={section} />}{selectedId !== section.id && section.kind === "images" && <ImageSectionPreview section={section} />}<button type="button" onClick={() => duplicate(section.id)}>Duplicate</button><button type="button" onClick={() => remove(section.id)}>Delete</button></div>
               {selectedId === section.id && section.kind !== "comic" && <input className="sb-section-title-input" aria-label="Section title" value={section.title} onChange={event => updateSection(section.id,s => { s.title = event.target.value; })} />}
               {selectedId === section.id && section.kind === "text" && textToolbar}
               {selectedId === section.id && section.kind === "screenplay" && <div className="sb-formatbar sb-screenplay-toolbar" role="toolbar" aria-label="Screenplay toolbar"><ScreenplayToolbar editor={manusEditor} /></div>}
               {selectedId !== section.id ? null : section.kind === "text" ? <div className="storyboard-prose" style={{textAlign:section.align,fontSize:`${section.size}px`}}><RichTextEditor key={section.id} html={section.html} onChange={html => { if (html !== section.html) updateSection(section.id,s => { if (s.kind === "text") s.html = html; }); }} onFocus={setTextEditor} /></div> : section.kind === "screenplay" ? <div className="sb-script-editor"><ScreenplayEditor key={section.id} initialContent={JSON.stringify(section.blocks)} smartTypeBlocks={screenplayBlocks} onEditorChange={setManusEditor} onChange={raw => { if (raw !== JSON.stringify(section.blocks)) updateSection(section.id,s => { if (s.kind === "screenplay") s.blocks = JSON.parse(raw); }); }} minRows={7} /></div> : section.kind === "images" ? <ImageSectionEditor section={section} library={library} libraryChapters={libraryChapters} defaultChapter={section.images[0]?.src ? libraryChapterOf(section.images[0].src) : chapter.title} onUploaded={addLibraryImage} onChapterCreated={addLibraryChapter} onChange={fn => updateSection(section.id,s => { if (s.kind === "images") fn(s); })} uploading={uploading} setUploading={setUploading} startDrag={startDrag} drag={drag} /> : section.kind === "video" ? <VideoSectionEditor section={section} onChange={src => updateSection(section.id,s => { if (s.kind === "video") s.src = src; })} /> : <ComicSectionEditor section={section} library={library} libraryChapters={libraryChapters} defaultChapter={section.src ? libraryChapterOf(section.src) : chapter.title} onUploaded={addLibraryImage} onChapterCreated={addLibraryChapter} onChange={fn => updateSection(section.id,s => { if (s.kind === "comic") fn(s); })} />}
-            </section>) : <button type="button" className="sb-show-sections" onClick={event => {event.stopPropagation();setExpandedChapters(current => [...current,chapter.id]);}}>{chapter.sections.length} sections · Show chapter</button>}
+              </section>
+              {canvasDropPreview?.kind === "section" && canvasDropPreview.chapterId === chapter.id && canvasDropPreview.targetId === section.id && canvasDropPreview.after && canvasPlaceholder("section")}
+            </Fragment>) : <button type="button" className="sb-show-sections" onClick={event => {event.stopPropagation();setExpandedChapters(current => [...current,chapter.id]);}}>{chapter.sections.length} sections · Show chapter</button>}
+            {canvasDropPreview?.kind === "section" && canvasDropPreview.chapterId === chapter.id && !canvasDropPreview.targetId && canvasPlaceholder("section")}
             <div className="sb-canvas-add"><button type="button" onClick={event => {event.stopPropagation();addSection(chapter.id,"text")}}>+ Text</button><button type="button" onClick={event => {event.stopPropagation();addSection(chapter.id,"screenplay")}}>+ Screenplay</button><button type="button" onClick={event => {event.stopPropagation();addSection(chapter.id,"images")}}>+ Images</button><button type="button" onClick={event => {event.stopPropagation();addSection(chapter.id,"comic")}}>+ Comic scroll</button><button type="button" onClick={event => {event.stopPropagation();addSection(chapter.id,"video")}}>+ Video</button></div>
-          </article>)}
+          </article>
+          {canvasDropPreview?.kind === "chapter" && canvasDropPreview.targetId === chapter.id && canvasDropPreview.after && canvasPlaceholder("chapter")}
+          </Fragment>)}
           <button type="button" className="sb-add-chapter" onClick={addChapter}>+ Add chapter</button>
         </main>
       </div>

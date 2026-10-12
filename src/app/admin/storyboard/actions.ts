@@ -1,5 +1,6 @@
 "use server";
 import { publishStoryboardDraft, saveStoryboardDraft } from "@/lib/storyboard/server";
+import { createStoryboardShareSnapshot } from "@/lib/storyboard/share-server";
 
 export async function saveDraftAction(document: unknown, version: number) {
   try { return { ok: true as const, ...(await saveStoryboardDraft(document, version)) }; }
@@ -8,4 +9,8 @@ export async function saveDraftAction(document: unknown, version: number) {
 export async function publishDraftAction(version: number) {
   try { return { ok: true as const, ...(await publishStoryboardDraft(version)) }; }
   catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Publishing failed." }; }
+}
+export async function createShareSnapshotAction() {
+  try { return { ok: true as const, ...(await createStoryboardShareSnapshot()) }; }
+  catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Could not create a fixed share link." }; }
 }

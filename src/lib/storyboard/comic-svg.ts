@@ -15,6 +15,24 @@ export function comicHeight(section: ComicSection) {
   return section.topSpace + comicImageHeight(section) + section.bottomSpace;
 }
 
+export function bubbleFlipPlacement(section: ComicSection, bubble: ComicBubble) {
+  const middle = section.topSpace + comicImageHeight(section) / 2;
+  const center = bubble.y + bubble.height / 2;
+  const nearMiddle = Math.abs(center - middle) < bubble.height / 2 + 12;
+  // Near the midpoint, use the current tail to make repeated clicks alternate.
+  const moveBelow = nearMiddle ? bubble.tailSide !== "top" : center < middle;
+  const mirroredY = 2 * middle - bubble.y - bubble.height;
+  const clearY = moveBelow ? middle + 12 : middle - bubble.height - 12;
+  const targetY = moveBelow ? Math.max(mirroredY, clearY) : Math.min(mirroredY, clearY);
+  const members = bubble.parentId ? [bubble] : [bubble, ...section.bubbles.filter(item => item.parentId === bubble.id)];
+  const minDelta = -Math.min(...members.map(item => item.y));
+  const maxDelta = comicHeight(section) - Math.max(...members.map(item => item.y + item.height));
+  return {
+    deltaY: Math.round(Math.max(minDelta, Math.min(maxDelta, targetY - bubble.y))),
+    tailSide: moveBelow ? "top" as const : "bottom" as const,
+  };
+}
+
 function xml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }

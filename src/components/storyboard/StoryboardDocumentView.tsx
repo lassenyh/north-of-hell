@@ -1,10 +1,11 @@
 import Image from "next/image";
-import type { StoryboardDocument, Section } from "@/lib/storyboard/model";
+import type { StoryboardDocument, Section, ComicSection } from "@/lib/storyboard/model";
 import { lineToEditorInnerHtml } from "@/lib/manuscript-html";
 import { sanitizeHtml } from "@/lib/safe-html";
 import { COMIC_RENDER_VERSION, comicHeight, renderComicSvg } from "@/lib/storyboard/comic-svg";
 import { ChapterJump } from "./ChapterJump";
 import { StoryboardReaderControls } from "./StoryboardReaderControls";
+import type { ReaderSection } from "@/lib/storyboard/reader-progress";
 import "./storyboard-document.css";
 
 export function cleanTextHtml(html: string) {
@@ -46,13 +47,27 @@ export function SectionContent({ section, showEmptyImageSlots = false, preferSou
   );
 }
 
-export function StoryboardDocumentView({ document, floatingChapterJump = false, preview = false }: { document: StoryboardDocument; floatingChapterJump?: boolean; preview?: boolean }) {
+export function StoryboardDocumentView({ document, floatingChapterJump = false, preview = false, readerScope = "live", showReaderTour = false, headerSectionId }: { document: StoryboardDocument; floatingChapterJump?: boolean; preview?: boolean; readerScope?: string; showReaderTour?: boolean; headerSectionId?: string }) {
   const chapters = document.chapters.map(chapter => ({ id: chapter.id, title: chapter.title }));
+  const headerSection = headerSectionId
+    ? document.chapters.flatMap(chapter => chapter.sections).find((section): section is ComicSection => section.id === headerSectionId && section.kind === "comic")
+    : undefined;
+  const headerImage = headerSection
+    ? {
+      src: headerSection.renderVersion === COMIC_RENDER_VERSION && headerSection.renderedSrc ? headerSection.renderedSrc : headerSection.src,
+      height: comicHeight(headerSection),
+    }
+    : null;
+  const readerSections: ReaderSection[] = document.chapters.flatMap((chapter, chapterIndex) => chapter.sections
+    .filter(section => section.kind === "images" ? section.images.length > 0 : section.kind === "comic" || section.kind === "video" ? !!section.src : true)
+    .map(section => ({ id: section.id, chapterId: chapter.id, chapterNumber: chapterIndex + 1, title: section.title })));
 
   return (
     <main className={`storyboard-document ${floatingChapterJump ? "storyboard-reader" : ""}`} aria-label={preview ? "Draft preview" : "Published storyboard"}>
-      {floatingChapterJump && <StoryboardReaderControls chapters={chapters} />}
-      <header className="storyboard-document-header"><h1>{document.title}</h1></header>
+      {floatingChapterJump && <StoryboardReaderControls chapters={chapters} sections={readerSections} scope={readerScope} showTour={showReaderTour} />}
+      <header className={`storyboard-document-header${headerImage ? " storyboard-document-header--image" : ""}`}>
+        <h1>{headerImage ? <Image src={headerImage.src} alt="North of Hell" width={800} height={headerImage.height} unoptimized sizes="(max-width: 520px) 100vw, 520px" /> : document.title}</h1>
+      </header>
       {!floatingChapterJump && <ChapterJump chapters={chapters} />}
       {document.chapters.map((chapter, index) => (
         <article key={chapter.id} id={`chapter-${chapter.id}`} className="storyboard-chapter">

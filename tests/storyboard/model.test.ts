@@ -42,6 +42,23 @@ test("document parsing rejects duplicate IDs and unsafe image URLs", () => {
   assert.throws(() => parseDocument(duplicate), /duplicate ID/);
 });
 
+test("missing text sizes default to 18 while authored sizes remain unchanged", () => {
+  const document = { schemaVersion: 1, title: "Test", chapters: [{ id: "chapter", title: "One", sections: [
+    { id: "text", kind: "text", title: "Text", html: "<p>Hello</p>", align: "left" },
+    { id: "comic", kind: "comic", title: "Comic", src: "", description: "", imageWidth: 800, imageHeight: 450, topSpace: 240, bottomSpace: 240, background: "#000000", bubbles: [
+      { id: "default", text: "Hello", x: 100, y: 30, width: 400, height: 155, tailSide: "bottom", tailX: 300, tailY: 220 },
+      { id: "authored", text: "World", x: 200, y: 300, width: 400, height: 155, tailSide: "top", tailX: 400, tailY: 250, fontSize: 36 },
+    ], sounds: [] },
+  ] }] };
+  const [text, comic] = parseDocument(document).chapters[0].sections;
+  assert.equal(text.kind, "text");
+  assert.equal(comic.kind, "comic");
+  if (text.kind === "text" && comic.kind === "comic") {
+    assert.equal(text.size, 18);
+    assert.deepEqual(comic.bubbles.map(bubble => bubble.fontSize), [18, 36]);
+  }
+});
+
 test("video sections survive saving and duplication while rejecting unsafe sources", () => {
   const section = { id: "video", kind: "video" as const, title: "0014", src: "/storyboard-uploads/scene.mp4" };
   const document: StoryboardDocument = { schemaVersion: 1, title: "Storyboard", chapters: [{ id: "chapter", title: "One", sections: [section] }] };

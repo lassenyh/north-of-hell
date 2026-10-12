@@ -1,7 +1,6 @@
 import "server-only";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { getAdminLoginById } from "@/lib/supabase/admin-auth";
 import { getStoryboardFrames, PROJECT_SLUG, type StoryboardFrame } from "@/lib/supabase/storyboard";
@@ -10,17 +9,10 @@ import { emptyDocument, importLegacyFrames, parseDocument, type StoryboardDocume
 import { publishComicImage } from "./comic-render";
 import { prepareComicPublication, renderComicJobs } from "./comic-publication";
 import { storyboardLocalMode } from "./mode";
+import { storyboardDatabase } from "./database";
 
 const localPath = storyboardLocalMode && process.env.STORYBOARD_LOCAL_STATE_PATH
   ? process.env.STORYBOARD_LOCAL_STATE_PATH : join(process.cwd(), ".local", "storyboard-state.json");
-
-function database() {
-  if (storyboardLocalMode) return null;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.STORYBOARD_SUPABASE_SERVER_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }) } });
-}
 
 export async function requireStoryboardEditor() {
   if (storyboardLocalMode) return;
@@ -41,7 +33,7 @@ export async function legacyStoryboardDocument(): Promise<StoryboardDocument> {
 }
 
 export async function loadStoryboardState(): Promise<StoryboardState> {
-  const db = database();
+  const db = storyboardDatabase();
   if (db) {
     const { data, error } = await db.from("storyboard_documents")
       .select("draft,published,draft_version,published_version,saved_at,published_at")
@@ -80,7 +72,7 @@ export async function saveStoryboardDraft(document: unknown, expectedVersion: nu
   const state = await loadStoryboardState();
   if (state.draftVersion !== expectedVersion) throw new Error("The draft changed in another tab. Reload the page before saving.");
   const now = new Date().toISOString();
-  const db = database();
+  const db = storyboardDatabase();
   if (db) {
     if (expectedVersion === 0) {
       const { error } = await db.from("storyboard_documents").insert({ project_slug: PROJECT_SLUG, draft, draft_version: 1, saved_at: now });
@@ -104,7 +96,7 @@ export async function publishStoryboardDraft(expectedVersion: number) {
   const now = new Date().toISOString();
   const { published, renderJobs } = prepareComicPublication(state.draft, state.published);
   await renderComicJobs(renderJobs, publishComicImage);
-  const db = database();
+  const db = storyboardDatabase();
   if (db) {
     const { data, error } = await db.from("storyboard_documents").update({ published, published_version: expectedVersion, published_at: now })
       .eq("project_slug", PROJECT_SLUG).eq("draft_version", expectedVersion).select("published_version").maybeSingle();

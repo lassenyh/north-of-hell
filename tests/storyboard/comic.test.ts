@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
 import { comicTextPath } from "../../src/lib/storyboard/comic-lettering";
-import { comicHeight, comicImageHeight, fitComicContent, layoutBubbleText, minimumComicSpace, renderComicSvg, updateComicSpace } from "../../src/lib/storyboard/comic-svg";
+import { bubbleFlipPlacement, comicHeight, comicImageHeight, fitComicContent, layoutBubbleText, minimumComicSpace, renderComicSvg, updateComicSpace } from "../../src/lib/storyboard/comic-svg";
 import { duplicateChapter, parseDocument, type ComicSection, type StoryboardDocument } from "../../src/lib/storyboard/model";
 
 const section = (): ComicSection => ({
@@ -12,6 +12,33 @@ const section = (): ComicSection => ({
   bubbles: [{ id: "bubble-1", text: "Hello, world!", x: 100, y: 45,
     width: 380, height: 165, tailSide: "bottom", tailX: 320, tailY: 285, fontSize: 36 }],
   sounds: [],
+});
+
+test("flip bubble moves away from the image midpoint and alternates on repeated clicks", () => {
+  const sample = section();
+  const bubble = sample.bubbles[0];
+  bubble.y = 390;
+  bubble.height = 150;
+  bubble.tailSide = "bottom";
+  const first = bubbleFlipPlacement(sample, bubble);
+  assert.ok(first.deltaY > 0);
+  assert.equal(first.tailSide, "top");
+  bubble.y += first.deltaY;
+  bubble.tailSide = first.tailSide;
+  const second = bubbleFlipPlacement(sample, bubble);
+  assert.ok(second.deltaY < 0);
+  assert.equal(second.tailSide, "bottom");
+});
+
+test("flip bubble accounts for connected bubble boundaries", () => {
+  const sample = section();
+  const bubble = sample.bubbles[0];
+  bubble.y = 390;
+  bubble.height = 150;
+  sample.bubbles.push({ ...bubble, id: "bubble-2", parentId: bubble.id, y: 760, height: 145, tailSide: "none" });
+  const flip = bubbleFlipPlacement(sample, bubble);
+  assert.equal(flip.deltaY, 45);
+  assert.equal(flip.tailSide, "top");
 });
 
 test("comic document retains editable source and bubbles, and duplicates get unique IDs", () => {

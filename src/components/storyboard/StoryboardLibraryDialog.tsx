@@ -4,7 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useStoryboardTheme } from "./StoryboardTheme";
 
-export function StoryboardLibraryDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function StoryboardLibraryDialog({ title, onClose, children, className = "" }: { title: string; onClose: () => void; children: ReactNode; className?: string }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const { theme } = useStoryboardTheme();
 
@@ -24,7 +24,7 @@ export function StoryboardLibraryDialog({ title, onClose, children }: { title: s
   }, []);
 
   return createPortal(
-    <dialog ref={dialogRef} className={`sb-library-dialog storyboard-theme--${theme}`} aria-label={title}
+    <dialog ref={dialogRef} className={`sb-library-dialog storyboard-theme--${theme} ${className}`} aria-label={title}
       onCancel={event => { event.preventDefault(); onClose(); }}
       onClick={event => {
         event.stopPropagation();
@@ -33,7 +33,7 @@ export function StoryboardLibraryDialog({ title, onClose, children }: { title: s
         if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
       }}>
       <div className="sb-library-dialog-shell">
-        <div className="sb-library-dialog-head"><h2>{title}</h2><button type="button" onClick={onClose} aria-label="Close image library">Close</button></div>
+        <div className="sb-library-dialog-head"><h2>{title}</h2><button type="button" onClick={onClose} aria-label={`Close ${title.toLowerCase()}`}>Close</button></div>
         <div className="sb-library-dialog-content">{children}</div>
       </div>
     </dialog>, document.body,

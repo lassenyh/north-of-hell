@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { comicHeight, comicImageHeight, fitComicContent, layoutBubbleText, minimumComicSpace, renderComicSvg, soundBounds, updateComicSpace } from "@/lib/storyboard/comic-svg";
+import { bubbleFlipPlacement, comicHeight, comicImageHeight, fitComicContent, layoutBubbleText, minimumComicSpace, renderComicSvg, soundBounds, updateComicSpace } from "@/lib/storyboard/comic-svg";
 import { newId, type ComicBubble, type ComicSection, type ComicSound } from "@/lib/storyboard/model";
 import { StoryboardLibraryDialog } from "./StoryboardLibraryDialog";
 import { StoryboardLibraryUpload } from "./StoryboardLibraryUpload";
@@ -178,7 +178,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
         next.topSpace = 210;
       }
       const y = Math.round(Math.max(18, next.topSpace * .14));
-      const bubble: ComicBubble = { id, text: "YOUR DIALOGUE", x, y, width: 400, height: 155, tailSide: "bottom", tailX: clamp(x + 260, 0, 800), tailY: next.topSpace + 35, fontSize: 36 };
+      const bubble: ComicBubble = { id, text: "YOUR DIALOGUE", x, y, width: 400, height: 155, tailSide: "bottom", tailX: clamp(x + 260, 0, 800), tailY: next.topSpace + 35, fontSize: 18 };
       next.bubbles.push(bubble); next.renderedSrc = undefined;
     });
     setSelected(id);
@@ -203,7 +203,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
       }
       const y = side === "above" ? next.topSpace - height - gap : next.topSpace + comicImageHeight(next) + gap;
       const width = 626;
-      next.bubbles.push({ id, shape: "rectangle", text: "YOUR TEXT", x: (800 - width) / 2, y, width, height, tailSide: "none", tailX: 400, tailY: y + height / 2, fontSize: 36 });
+      next.bubbles.push({ id, shape: "rectangle", text: "YOUR TEXT", x: (800 - width) / 2, y, width, height, tailSide: "none", tailX: 400, tailY: y + height / 2, fontSize: 18 });
       next.renderedSrc = undefined;
     });
     setSelected(id);
@@ -217,7 +217,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
     if (section.sounds.length >= 30) return;
     const id = newId();
     onChange(next => {
-      next.sounds.push({ id, text: "NEIGH", x: next.sounds.length % 2 ? 600 : 205, y: next.topSpace + 150, fontSize: 84, rotation: -18, color: "#171412", outlineEnabled: false, outlineColor: "#ffffff", outlineWidth: 4 });
+      next.sounds.push({ id, text: "NEIGH", x: next.sounds.length % 2 ? 600 : 205, y: next.topSpace + 150, fontSize: 84, rotation: -18, color: "#171412", outlineEnabled: true, outlineColor: "#ffffff", outlineWidth: 4 });
       next.renderedSrc = undefined;
     });
     setSelected(id);
@@ -260,7 +260,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
       const x = clamp(root.x + root.width * .44 + siblings * 22, 0, 800 - width);
       const below = root.y + root.height + height * .7 <= comicHeight(next);
       const y = clamp(below ? root.y + root.height * .62 + siblings * 18 : root.y - height * .62 - siblings * 18, 0, comicHeight(next) - height);
-      next.bubbles.push({ id, parentId: root.id, text: "MORE DIALOGUE", x: Math.round(x), y: Math.round(y), width, height, tailSide: "none", tailX: x + width / 2, tailY: y + height / 2, fontSize: root.fontSize });
+      next.bubbles.push({ id, parentId: root.id, text: "MORE DIALOGUE", x: Math.round(x), y: Math.round(y), width, height, tailSide: "none", tailX: x + width / 2, tailY: y + height / 2, fontSize: 18 });
       next.renderedSrc = undefined;
     });
     setSelected(id);
@@ -268,14 +268,11 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
   }
   function flipBubble(bubble: ComicBubble) {
     updateBubble(bubble.id, (item, next) => {
-      const imageTop = section.topSpace;
-      const imageBottom = imageTop + comicImageHeight(section);
-      const wasAbove = item.y + item.height / 2 < (imageTop + imageBottom) / 2;
-      const targetY = clamp(imageTop + imageBottom - item.y - item.height, 0, comicHeight(section) - item.height);
-      moveBubbleMembers(next, bubbleMembers(next.bubbles, item).map(member => ({ ...member })), 0, targetY - item.y);
+      const { deltaY, tailSide } = bubbleFlipPlacement(next, item);
+      moveBubbleMembers(next, bubbleMembers(next.bubbles, item).map(member => ({ ...member })), 0, deltaY);
       if (item.tailSide === "left" || item.tailSide === "right" || item.tailSide === "none") item.tailX = clamp(item.x + item.width * .55, 0, 800);
-      item.tailSide = wasAbove ? "top" : "bottom";
-      item.tailY = clamp(wasAbove ? item.y - 55 : item.y + item.height + 55, 0, comicHeight(section));
+      item.tailSide = tailSide;
+      item.tailY = clamp(tailSide === "top" ? item.y - 55 : item.y + item.height + 55, 0, comicHeight(next));
       constrainTail(item, comicHeight(section));
     });
   }

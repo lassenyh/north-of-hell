@@ -46,6 +46,13 @@ For isolated browser tests, `STORYBOARD_LOCAL_STATE_PATH` can point to a separat
 JSON state file and `STORYBOARD_LOCAL_UPLOAD_SUBDIR` chooses a subdirectory under
 `public/storyboard-uploads` (letters, digits and hyphens only).
 
+Storyboard share pages read only Supabase's published document. In local review
+mode they use a server key, if configured, to read that publication without
+changing the studio's isolated draft. Without a server key, they use the last
+Supabase publication synced to `.local/storyboard-published-supabase.json`.
+They do not fall back to the local studio's published copy. Fixed local links
+store an independent snapshot under `.local/storyboard-share-snapshots`.
+
 ## Comic scroll sections
 
 Create a **Comic scroll** section inside any chapter. Choose one illustration

@@ -103,7 +103,7 @@ export function parseDocument(input: unknown): StoryboardDocument {
       const id = checkId(sec.id);
       const title = typeof sec.title === "string" ? displayDefaultTitle(sec.title.slice(0, 300)) : "Untitled";
       if (sec.kind === "text") {
-        return { id, title, kind: "text" as const, html: typeof sec.html === "string" ? sec.html.slice(0, 200000) : "", align: sec.align === "center" || sec.align === "right" ? sec.align : "left", size: typeof sec.size === "number" && sec.size >= 10 && sec.size <= 48 ? sec.size : 16 };
+        return { id, title, kind: "text" as const, html: typeof sec.html === "string" ? sec.html.slice(0, 200000) : "", align: sec.align === "center" || sec.align === "right" ? sec.align : "left", size: typeof sec.size === "number" && sec.size >= 10 && sec.size <= 48 ? sec.size : 18 };
       }
       if (sec.kind === "screenplay") {
         if (!Array.isArray(sec.blocks) || sec.blocks.length > 3000) throw new Error("Invalid screenplay.");
@@ -150,7 +150,7 @@ export function parseDocument(input: unknown): StoryboardDocument {
             width: numberIn(bubble.width, 100, bubble.shape === "rectangle" ? 800 : 760, bubble.shape === "rectangle" ? 800 : 440), height: numberIn(bubble.height, 70, 600, 170),
             tailSide: bubble.shape === "rectangle" || bubble.parentId ? "none" as const : ["none", "top", "bottom", "left", "right"].includes(String(bubble.tailSide)) ? bubble.tailSide as ComicBubble["tailSide"] : "bottom",
             tailX: numberIn(bubble.tailX, 0, 800, 390), tailY: numberIn(bubble.tailY, 0, 8000, 260),
-            fontSize: numberIn(bubble.fontSize, 18, 64, 34),
+            fontSize: numberIn(bubble.fontSize, 18, 64, 18),
           };
         });
         const roots = new Set(bubbles.filter(bubble => !bubble.parentId && bubble.shape !== "rectangle").map(bubble => bubble.id));
