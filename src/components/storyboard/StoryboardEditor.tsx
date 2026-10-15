@@ -30,6 +30,8 @@ const libraryNameSort = new Intl.Collator(undefined, { numeric: true, sensitivit
 const libraryFilename = (src: string) => decodeURIComponent(src.split("/").at(-1) || "Frame").replace(/^[0-9]+-[0-9a-f-]{36}-/, "");
 const AUTO_SAVE_IDLE_MS = 2 * 60 * 1000;
 const SAVE_TIMEOUT_MS = 30 * 1000;
+const SAVE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Oslo", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const SAVE_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Oslo", dateStyle: "full", timeStyle: "short" });
 
 function sectionExcerpt(section: Section) {
   const source = section.kind === "text" ? section.html : section.kind === "screenplay" ? section.blocks.find(block => block.text.trim())?.text || "" : "";
@@ -58,18 +60,20 @@ function RichTextEditor({ html, onChange, onFocus }: { html: string; onChange: (
   return <EditorContent editor={editor} />;
 }
 
-export default function StoryboardEditor(props: { initial: StoryboardState; library: string[]; libraryChapters: string[]; hiddenLibrary: string[] }) {
+export default function StoryboardEditor(props: { initial: StoryboardState; library: string[]; libraryChapters: string[]; hiddenLibrary: string[]; demoPublish?: "loading" | "success" }) {
   return <StoryboardTheme><StoryboardEditorContent {...props} /></StoryboardTheme>;
 }
 
-function StoryboardEditorContent({ initial, library: initialLibrary, libraryChapters: initialLibraryChapters, hiddenLibrary: initialHiddenLibrary }: { initial: StoryboardState; library: string[]; libraryChapters: string[]; hiddenLibrary: string[] }) {
+function StoryboardEditorContent({ initial, library: initialLibrary, libraryChapters: initialLibraryChapters, hiddenLibrary: initialHiddenLibrary, demoPublish }: { initial: StoryboardState; library: string[]; libraryChapters: string[]; hiddenLibrary: string[]; demoPublish?: "loading" | "success" }) {
   const [tab, setTab] = useState<"preview" | "editor">("editor");
   const [document, setDocument] = useState(initial.draft);
   const [published, setPublished] = useState(initial.published);
   const [version, setVersion] = useState(initial.draftVersion);
   const [publishedVersion, setPublishedVersion] = useState(initial.publishedVersion);
+  const [lastSavedAt, setLastSavedAt] = useState(initial.savedAt);
   const [savedJson, setSavedJson] = useState(JSON.stringify(initial.draft));
   const [busy, setBusy] = useState<"save" | "publish" | null>(null);
+  const [publishSuccess, setPublishSuccess] = useState(demoPublish === "success");
   const [savePending, setSavePending] = useState(false);
   const [error, setError] = useState("");
   const [flash, setFlash] = useState("");
@@ -151,6 +155,11 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
   useEffect(() => {
+    if (!publishSuccess) return;
+    const timer = window.setTimeout(() => setPublishSuccess(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [publishSuccess]);
+  useEffect(() => {
     if (!dirty || busy || savePending) return;
     const timer = window.setTimeout(() => { void saveRef.current?.(true); }, AUTO_SAVE_IDLE_MS);
     return () => window.clearTimeout(timer);
@@ -203,6 +212,8 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [switchView, tab]);
   const status = dirty ? "Unsaved changes" : version === 0 ? "No saved draft" : publishedVersion === version ? outdatedComic ? "Updated comic style available" : "Published version" : "Saved draft";
+  const savedDate = lastSavedAt && !Number.isNaN(Date.parse(lastSavedAt)) ? new Date(lastSavedAt) : null;
+  const publishOverlayState = busy === "publish" || demoPublish === "loading" ? "loading" : publishSuccess ? "success" : null;
 
   function select(id: string) {
     if (id !== selectedId) setTextEditor(null);
@@ -390,6 +401,7 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     const finish = (result: Awaited<typeof request>) => {
       if (result.ok) {
         setVersion(result.version);
+        setLastSavedAt(result.savedAt);
         setSavedJson(serialized);
         setError("");
         setFlash(automatic ? "Draft autosaved" : "Draft saved");
@@ -427,10 +439,10 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
   saveRef.current = save;
   async function publish() {
     if (busy || savePending || saveRequest.current || dirty || version === 0) return;
-    setBusy("publish"); setError(""); setFlash("");
+    setBusy("publish"); setPublishSuccess(false); setError(""); setFlash("");
     try {
       const result = await publishDraftAction(version);
-      if (result.ok) { setPublished(result.published); setPublishedVersion(result.version); setFlash("Published version updated"); }
+      if (result.ok) { setPublished(result.published); setPublishedVersion(result.version); setFlash("Published version updated"); setPublishSuccess(true); }
       else setError(result.error);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Publishing failed.");
@@ -478,10 +490,22 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
 
   return <div className="sb-app" onDragEndCapture={clearDrag}>
     <MainSiteHeader />
+    {publishOverlayState && <div className={`sb-publish-overlay ${publishOverlayState === "success" ? "is-success" : ""}`}>
+      <div className="sb-publish-content">
+        <div className="sb-publish-logo">
+          <Image src="/Login-assets/NOH_TITLE_C72B1F.png" alt="North of Hell" width={7373} height={1562} priority />
+          {publishOverlayState === "loading" && <Image className="sb-publish-logo-swipe" src="/Login-assets/NOH_TITLE_C72B1F.png" alt="" aria-hidden="true" width={7373} height={1562} />}
+        </div>
+        {publishOverlayState === "loading" ? <div className="sb-publish-progress" aria-hidden="true"><span /></div> : <span className="sb-publish-success-mark" aria-hidden="true">✓</span>}
+        <p role="status" aria-live="polite">{publishOverlayState === "loading" ? <>Publishing storyboard<span aria-hidden="true">…</span></> : "Storyboard published"}</p>
+        {publishOverlayState === "success" && <span className="sb-publish-success-detail">The latest version is live.</span>}
+        {demoPublish && busy !== "publish" ? <Link href="/storyboard-studio" className="sb-publish-dismiss">Close demo</Link> : publishOverlayState === "success" && <button type="button" className="sb-publish-dismiss" onClick={() => setPublishSuccess(false)}>Continue editing</button>}
+      </div>
+    </div>}
     <header className="sb-topbar">
-      <div><p className="sb-kicker">NORTH OF HELL / STORYBOARD</p><h1>Storyboard studio</h1></div>
+      <div><h1>Storyboard studio</h1></div>
       <nav className="sb-tabs" aria-label="Storyboard view"><button type="button" aria-current={tab === "preview" ? "page" : undefined} onClick={() => switchView("preview")} title="Preview draft (P)">Preview <span className="sb-tab-shortcut" aria-hidden="true">P</span></button><button type="button" aria-current={tab === "editor" ? "page" : undefined} onClick={() => switchView("editor")} title="Return to editor (P)">Editor</button></nav>
-      <div className="sb-save-actions"><span className={`sb-status ${dirty ? "dirty" : ""}`} role="status" title={dirty ? "Automatically saves after 2 minutes without editing" : undefined}>{status}</span><button type="button" onClick={() => void save()} disabled={!!busy || savePending || !dirty && version > 0}>{busy === "save" ? "Saving…" : savePending ? "Save pending…" : "Save draft"}</button><button type="button" className="primary" onClick={publish} disabled={!!busy || savePending || !!saveRequest.current || dirty || version === 0 || publishedVersion === version && !outdatedComic}>{busy === "publish" ? "Publishing…" : "Publish"}</button><button type="button" onClick={() => setShareOpen(true)} disabled={!published} title={published ? "Share the latest published storyboard" : "Publish a storyboard before sharing"}>Share</button></div>
+      <div className="sb-save-actions"><span className={`sb-status ${dirty ? "dirty" : ""}`} role="status" title={dirty ? "Automatically saves after 2 minutes without editing" : undefined}>{status}{version > 0 && savedDate && <> · <time dateTime={lastSavedAt!} title={`Last saved ${SAVE_DATE_FORMATTER.format(savedDate)} (Oslo time)`}>{dirty ? "last saved " : ""}{SAVE_TIME_FORMATTER.format(savedDate)}</time></>}</span><button type="button" onClick={() => void save()} disabled={!!busy || savePending || !dirty && version > 0}>{busy === "save" ? "Saving…" : savePending ? "Save pending…" : "Save draft"}</button><button type="button" className="primary" onClick={publish} disabled={!!busy || savePending || !!saveRequest.current || dirty || version === 0 || publishedVersion === version && !outdatedComic}>{busy === "publish" ? "Publishing…" : "Publish"}</button><button type="button" onClick={() => setShareOpen(true)} disabled={!published} title={published ? "Share the latest published storyboard" : "Publish a storyboard before sharing"}>Share</button></div>
     </header>
     {shareOpen && <StoryboardShareDialog onClose={() => setShareOpen(false)} />}
     {(error || flash) && <div className={error ? "sb-message error" : "sb-message"} role={error ? "alert" : "status"}>{error || flash}</div>}
@@ -587,7 +611,7 @@ function ImageSectionEditor({ section, library, libraryChapters, defaultChapter,
     setPickTarget(null);
   }
   function setLayout(value: typeof section.layout) {
-    if (section.images.some(image => image.slot >= capacity[value]) && !window.confirm("The new layout has fewer slots. Images and descriptions outside the new slots will be removed. Continue?")) return;
+    if (section.images.some(image => image.slot >= capacity[value]) && !window.confirm("The new layout has fewer slots. Images outside the new slots will be removed. Continue?")) return;
     onChange(s => { s.layout = value; s.images = s.images.filter(image => image.slot < capacity[value]); });
   }
   const uploadKey = (slot: number) => `${section.id}:${slot}`;
@@ -657,7 +681,6 @@ function ImageSectionEditor({ section, library, libraryChapters, defaultChapter,
         return image ? <div key={`slot-${slot}`} data-slot={slot} className={`sb-image-card sb-file-dropzone ${dropTarget===slot?"is-file-over":""}`} onDragOver={event=>{if(isFileDrag(event))fileDragOver(event,slot);else if(drag.current?.kind==="image")event.preventDefault();}} onDragLeave={event=>fileDragLeave(event,slot)} onDrop={event=>{if(isFileDrag(event))fileDrop(event,slot);else dropImage(event,slot);}}>
           <div className="sb-image-controls"><button type="button" className="sb-grip" draggable onDragStart={event=>startDrag(event,{kind:"image",id:image.id,sectionId:section.id})} onDragEnd={()=>{drag.current=null;}} aria-label={`Drag image ${slot+1}`}>⋮⋮</button><span>Image {slot+1}</span><button type="button" aria-label={`Move image ${slot+1} backward`} disabled={slot===0} onClick={()=>moveImage(image.id,-1)}>←</button><button type="button" aria-label={`Move image ${slot+1} forward`} disabled={slot===total-1} onClick={()=>moveImage(image.id,1)}>→</button><button type="button" aria-label={`Remove image ${slot+1}`} onClick={()=>onChange(s=>{s.images=s.images.filter(i=>i.id!==image.id);})}>×</button></div>
           <div className="storyboard-image-wrap"><Image src={image.src} alt={image.description||`Image ${slot+1}`} fill unoptimized sizes="(max-width: 700px) 100vw, 50vw" /><span className="sb-drop-overlay" aria-hidden="true">{uploading===uploadKey(slot)?"Uploading…":"Drop image to replace"}</span></div>
-          <label>Description <textarea aria-label={`Description for image ${slot+1}`} value={image.description} onChange={event=>onChange(s=>{const item=s.images.find(i=>i.id===image.id);if(item)item.description=event.target.value;})} /></label>
           <button type="button" className="sb-library-open" onClick={() => {setPickTarget(slot);setLibraryQuery("");setLibraryLimit(18);}}>Replace from image library</button>
           <label className="sb-upload">{uploading===uploadKey(slot)?"Uploading…":"Upload replacement"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={!!uploading} onChange={event=>uploadFromInput(event,slot)} /></label>
         </div> : <div key={`slot-${slot}`} data-slot={slot} role="group" aria-label={`Image slot ${slot+1}`} className={`sb-image-placeholder sb-file-dropzone ${dropTarget===slot?"is-file-over":""}`} onDragOver={event=>{if(isFileDrag(event))fileDragOver(event,slot);else if(drag.current?.kind==="image")event.preventDefault();}} onDragLeave={event=>fileDragLeave(event,slot)} onDrop={event=>{if(isFileDrag(event))fileDrop(event,slot);else dropImage(event,slot);}}><svg className="sb-drop-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 4v15m0 0-5-5m5 5 5-5M6 23v4h20v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg><p>Image {slot+1}</p><button type="button" className="sb-library-open" onClick={() => {setPickTarget(slot);setLibraryQuery("");setLibraryLimit(18);}}>Choose from image library</button><label className="sb-upload">{uploading===uploadKey(slot)?"Uploading…":"Upload image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={!!uploading} onChange={event=>uploadFromInput(event,slot)} /></label></div>;

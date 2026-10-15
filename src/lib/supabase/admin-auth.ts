@@ -33,7 +33,7 @@ export async function validateAdminLogin(
       password,
     });
     if (signInError || !auth.user) return null;
-    return getAuthorizedAuthUser(auth.user.id, auth.user.email ?? username);
+    return getAuthorizedAuthUser(auth.user.id, auth.user.email ?? username, authClient);
   }
 
   const supabase = await createClient();
@@ -85,8 +85,9 @@ export async function getAdminLoginById(
   return getAuthorizedAuthUser(id);
 }
 
-async function getAuthorizedAuthUser(id: string, email?: string): Promise<ProjectAdminLogin | null> {
-  const supabase = await createClient();
+async function getAuthorizedAuthUser(id: string, email?: string, authenticatedClient?: Awaited<ReturnType<typeof createPublicClient>>): Promise<ProjectAdminLogin | null> {
+  // Keep the signed-in identity for the RLS policy that permits reading your own grant.
+  const supabase = authenticatedClient ?? await createClient();
   const { data, error } = await supabase
     .from("project_admin_auth_users")
     .select("user_id, project_slug, created_at")

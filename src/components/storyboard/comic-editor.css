@@ -2,7 +2,7 @@
 .comic-editor button,.comic-editor select,.comic-editor input,.comic-editor textarea{font:inherit}
 .comic-editor button{border:1px solid #80684b;border-radius:4px;background:#392d21;color:#f2d6ad;padding:7px 10px;cursor:pointer}
 .comic-editor button:disabled{opacity:.4;cursor:default}
-.comic-source-row{position:absolute;z-index:3;top:16px;right:16px;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;max-width:calc(100% - 32px);padding:4px;border:1px solid #6d5942;border-radius:5px;background:#17130dd9;box-shadow:0 2px 12px #0007;font-size:12px}.comic-source-row button,.comic-source-row .comic-upload{padding:6px 8px}
+.comic-source-row{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;font-size:12px}.comic-source-row button,.comic-source-row .comic-upload{padding:6px 8px}
 .comic-upload{position:relative;display:inline-block;border:1px solid #80684b;border-radius:4px;background:#392d21;color:#f2d6ad;padding:7px 10px;cursor:pointer}
 .comic-upload input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}
 .comic-picker{border:1px solid #80684b;background:#29241e;padding:12px;max-height:370px;overflow:auto}

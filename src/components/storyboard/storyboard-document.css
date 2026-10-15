@@ -87,7 +87,7 @@
 .storyboard-document .storyboard-layout-single figure{flex:1 1 100%}
 .storyboard-document .storyboard-layout-1x2 figure,.storyboard-document .storyboard-layout-2x2 figure{flex:1 1 calc((100% - 24px)/2)}
 .storyboard-document .storyboard-layout-2x3 figure,.storyboard-document .storyboard-layout-3x3 figure{flex:1 1 calc((100% - 48px)/3)}
-.storyboard-image-wrap{position:relative;aspect-ratio:16/9;background:#080808;overflow:hidden;border:1px solid #37332b}
+.storyboard-image-wrap{position:relative;aspect-ratio:16/9;background:#080808;overflow:hidden}
 .storyboard-image-wrap img{object-fit:contain}
 .storyboard-image-grid figcaption{font:12pt/1.35 var(--font-courier-prime),Courier,monospace;color:#d4d0c9;white-space:pre-wrap;margin-top:12px}
 .storyboard-section--comic{max-width:none;margin:0 auto;padding:0}

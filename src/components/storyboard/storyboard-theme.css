@@ -16,7 +16,7 @@
 .sb-theme-toggle:hover{border-color:#c99555}
 .storyboard-theme--light .sb-app,.storyboard-theme--light .sb-canvas,.storyboard-theme--light .sb-finished{background:#fff;color:#24211d}
 .storyboard-theme--light .sb-topbar{background:#fff;border-color:#e4e0d8;color:#24211d}
-.storyboard-theme--light .sb-kicker,.storyboard-theme--light .sb-edit-heading,.storyboard-theme--light .sb-edit-section-head{color:#8c5b32}
+.storyboard-theme--light .sb-edit-heading,.storyboard-theme--light .sb-edit-section-head{color:#8c5b32}
 .storyboard-theme--light .sb-tabs{background:#f1eee8}
 .storyboard-theme--light .sb-tabs button{color:#59534c}
 .storyboard-theme--light .sb-tabs button[aria-current="page"]{background:#fff;color:#24211d;box-shadow:0 1px 5px #0002}
@@ -78,7 +78,6 @@
 .storyboard-theme--light .comic-picker input,.storyboard-theme--light .comic-picker select,.storyboard-theme--light .comic-settings input,.storyboard-theme--light .comic-settings select,.storyboard-theme--light .comic-inspector input,.storyboard-theme--light .comic-inspector select,.storyboard-theme--light .comic-inspector textarea{background:#fff;color:#28241f;border-color:#c8bdaf}
 .storyboard-theme--light .comic-actions button[aria-pressed="true"]{background:#edd6b7;color:#28241f}
 .storyboard-theme--light .comic-stage-wrap{background:#eeeae3}
-.storyboard-theme--light .comic-source-row{background:#fffffff0;border-color:#cbbba7;box-shadow:0 2px 12px #0002}
 .storyboard-theme--light .comic-stage-wrap.is-empty .comic-stage svg>rect:first-of-type{fill:#fbfaf8}
 .storyboard-theme--light .comic-error,.storyboard-theme--light .sb-upload-error{background:#fff0ec;color:#8b2d22}
 .storyboard-theme--light .comic-slider output{color:#81532a}
@@ -95,7 +94,7 @@
 .storyboard-theme--light .storyboard-jump nav a{color:#29251f}
 .storyboard-theme--light .storyboard-jump nav a:hover,.storyboard-theme--light .storyboard-jump nav a:focus{background:#f6ebdd;color:#29251f}
 .storyboard-theme--light .storyboard-reader .storyboard-jump--icon{color:#29251f}
-.storyboard-theme--light .storyboard-image-wrap{background:#f5f2ed;border-color:#ded8ce}
+.storyboard-theme--light .storyboard-image-wrap{background:#f5f2ed}
 
 .storyboard-theme-button{display:grid;place-items:center;width:48px;height:48px;padding:0;border:1px solid #514533;border-radius:50%;background:#22201c;color:#ede9e3;box-shadow:0 5px 20px #0007;cursor:pointer;font-size:23px}
 .storyboard-theme-button:hover{border-color:#eaa631}
