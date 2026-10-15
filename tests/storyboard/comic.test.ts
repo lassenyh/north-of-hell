@@ -89,7 +89,7 @@ test("comic dimensions keep original image aspect ratio inside the composed stri
   assert.equal(comicHeight(sample), 950);
   const svg = renderComicSvg(sample);
   assert.match(svg, /width="800" height="950"/);
-  assert.match(svg, /<image[^>]+y="240"[^>]+width="800" height="450"/);
+  assert.match(svg, /<svg data-comic-image="true"[^>]+y="240"[^>]+width="800" height="450"/);
 });
 
 test("comic image frame can switch between wide and tall without stretching the source or clipping dialogue", () => {

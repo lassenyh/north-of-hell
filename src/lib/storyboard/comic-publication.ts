@@ -5,7 +5,7 @@ import { COMIC_RENDER_VERSION, layoutBubbleText } from "./comic-svg";
 // descriptions and image metadata can change without rebuilding the image.
 export function comicVisualKey(section: ComicSection) {
   return JSON.stringify({
-    src: section.src, aspect: section.aspect, topSpace: section.topSpace,
+    crop: section.crop, src: section.src, aspect: section.aspect, topSpace: section.topSpace,
     bottomSpace: section.bottomSpace, background: section.background,
     bubbles: section.bubbles, sounds: section.sounds,
   });

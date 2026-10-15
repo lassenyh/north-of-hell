@@ -1,3 +1,4 @@
+import { imageCropStyle } from "@/lib/storyboard/image-crop";
 import Image from "next/image";
 import type { StoryboardDocument, Section, ComicSection } from "@/lib/storyboard/model";
 import { lineToEditorInnerHtml } from "@/lib/manuscript-html";
@@ -39,7 +40,7 @@ export function SectionContent({ section, showEmptyImageSlots = false, preferSou
       {slots.map(slot => {
         const image = images.find(item => item.slot === slot);
         return image ? <figure key={image.id}>
-          <div className="storyboard-image-wrap"><Image src={image.src} alt={image.description || `Storyboard image ${image.slot + 1}`} fill unoptimized sizes="(max-width: 700px) 100vw, 50vw" /></div>
+          <div className="storyboard-image-wrap"><Image style={imageCropStyle(image.crop)} src={image.src} alt={image.description || `Storyboard image ${image.slot + 1}`} fill unoptimized sizes="(max-width: 700px) 100vw, 50vw" /></div>
           {image.description && <figcaption>{image.description}</figcaption>}
         </figure> : <div key={`empty-${slot}`} className="storyboard-empty-slot" aria-hidden="true" />;
       })}

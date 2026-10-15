@@ -1,3 +1,4 @@
+import { normalizeImageCrop, type ImageCrop } from "./image-crop";
 import type { StoryboardFrame } from "@/lib/supabase/storyboard";
 import { isScreenplayBlockType, legacyTextToScreenplayBlocks, type ScreenplayBlock } from "@/lib/screenplay-json";
 
@@ -7,7 +8,7 @@ export type Section =
   | { id: string; kind: "images"; title: string; layout: "single" | "1x2" | "2x2" | "2x3" | "3x3"; images: StoryboardImage[] }
   | { id: string; kind: "video"; title: string; src: string }
   | ComicSection;
-export type StoryboardImage = { id: string; src: string; description: string; slot: number };
+export type StoryboardImage = { id: string; src: string; description: string; slot: number; crop?: ImageCrop };
 export type ComicBubble = {
   id: string; text: string; x: number; y: number; width: number; height: number;
   shape?: "rectangle";
@@ -23,6 +24,7 @@ export type ComicSound = {
 export type ComicSection = {
   id: string; kind: "comic"; title: string; src: string; description: string;
   aspect?: "16:9" | "9:16";
+  crop?: ImageCrop;
   imageWidth: number; imageHeight: number; topSpace: number; bottomSpace: number;
   background: string; bubbles: ComicBubble[]; sounds: ComicSound[];
   renderedSrc?: string; renderVersion?: number;
@@ -85,6 +87,7 @@ export function importLegacyFrames(frames: StoryboardFrame[]): StoryboardDocumen
 export function parseDocument(input: unknown): StoryboardDocument {
   if (!input || typeof input !== "object") throw new Error("Invalid document.");
   const value = input as Record<string, unknown>;
+  const cropFields = (raw: unknown) => raw && typeof raw === "object" ? { crop: normalizeImageCrop(raw) } : {};
   if (value.schemaVersion !== 1 || typeof value.title !== "string" || !Array.isArray(value.chapters)) throw new Error("Unknown document format.");
   const ids = new Set<string>();
   const checkId = (id: unknown) => {
@@ -124,7 +127,7 @@ export function parseDocument(input: unknown): StoryboardDocument {
           const slot = Number.isInteger(image.slot) ? Number(image.slot) : index;
           if (slot < 0 || slot >= capacity || usedSlots.has(slot)) throw new Error("Invalid or duplicate image slot.");
           usedSlots.add(slot);
-          return { id: checkId(image.id), src: image.src, description: typeof image.description === "string" ? image.description.slice(0, 10000) : "", slot };
+          return { ...cropFields(image.crop), id: checkId(image.id), src: image.src, description: typeof image.description === "string" ? image.description.slice(0, 10000) : "", slot };
         });
         return { id, title, kind: "images" as const, layout, images: images.sort((a, b) => a.slot - b.slot) };
       }
@@ -156,7 +159,7 @@ export function parseDocument(input: unknown): StoryboardDocument {
         const roots = new Set(bubbles.filter(bubble => !bubble.parentId && bubble.shape !== "rectangle").map(bubble => bubble.id));
         for (const bubble of bubbles) if (bubble.parentId && (bubble.shape === "rectangle" || !roots.has(bubble.parentId))) delete bubble.parentId;
         return {
-          id, kind: "comic" as const, title, src: sec.src,
+          id, kind: "comic" as const, title, src: sec.src, ...cropFields(sec.crop),
           description: typeof sec.description === "string" ? sec.description.slice(0, 1000) : "",
           ...(sec.aspect === "16:9" || sec.aspect === "9:16" ? { aspect: sec.aspect } : {}),
           imageWidth: numberIn(sec.imageWidth, 1, 30000, 800), imageHeight: numberIn(sec.imageHeight, 1, 30000, 450),
@@ -258,7 +261,7 @@ export function moveSectionWithNumbering(document: StoryboardDocument, id: strin
 
 export function putImageInSlot(section: Extract<Section, { kind: "images" }>, slot: number, src: string) {
   const existing = section.images.find(image => image.slot === slot);
-  if (existing) existing.src = src;
+  if (existing) { existing.src = src; delete existing.crop; }
   else section.images.push({ id: newId(), src, description: "", slot });
   section.images.sort((a, b) => a.slot - b.slot);
 }

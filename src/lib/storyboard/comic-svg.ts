@@ -1,3 +1,4 @@
+import { normalizeImageCrop } from "./image-crop";
 import type { ComicBubble, ComicSection, ComicSound } from "./model";
 
 export const COMIC_WIDTH = 800;
@@ -160,6 +161,7 @@ export function updateComicSpace(section: ComicSection, side: "above" | "below",
 export function renderComicSvg(section: ComicSection, imageHref = section.src, textPath?: ComicTextPath, editingBubbleId?: string) {
   const height = comicHeight(section);
   const imageHeight = comicImageHeight(section);
+  const crop = normalizeImageCrop(section.crop);
   const maskPrefix = `comic-join-${[...section.id].map(char => char.codePointAt(0)!.toString(16)).join("-")}`;
   const lettering = (bubble: ComicBubble) => {
     const text = layoutBubbleText(bubble);
@@ -200,5 +202,5 @@ export function renderComicSvg(section: ComicSection, imageHref = section.src, t
       : `<text fill="${sound.color}"${outline} font-family="Jack Armstrong, sans-serif" font-size="${sound.fontSize}" text-anchor="middle">${bounds.lines.map((line, index) => `<tspan x="0" y="${Number((firstY + index * lineHeight).toFixed(2))}">${xml(line || " ")}</tspan>`).join("")}</text>`;
     return `<g data-sound-id="${xml(sound.id)}" transform="translate(${sound.x} ${sound.y}) rotate(${sound.rotation})"><rect x="${-bounds.width / 2}" y="${-bounds.height / 2}" width="${bounds.width}" height="${bounds.height}" fill="transparent" pointer-events="all"/>${lettering}</g>`;
   }).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${COMIC_WIDTH}" height="${height}" viewBox="0 0 ${COMIC_WIDTH} ${height}" role="img" aria-label="${xml(section.description || section.title)}"><rect width="800" height="${height}" fill="${section.background}"/>${imageHref ? `<image href="${xml(imageHref)}" x="0" y="${section.topSpace}" width="800" height="${imageHeight}" preserveAspectRatio="${section.aspect ? "xMidYMid slice" : "none"}"/>` : ""}${bubbles}${sounds}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${COMIC_WIDTH}" height="${height}" viewBox="0 0 ${COMIC_WIDTH} ${height}" role="img" aria-label="${xml(section.description || section.title)}"><rect width="800" height="${height}" fill="${section.background}"/>${imageHref ? `<svg data-comic-image="true" x="0" y="${section.topSpace}" width="800" height="${imageHeight}" viewBox="0 0 800 ${imageHeight}" overflow="hidden"><g transform="translate(${crop.x * 8} ${crop.y * imageHeight / 100}) translate(400 ${imageHeight / 2}) scale(${crop.scale}) translate(-400 ${-imageHeight / 2})"><image href="${xml(imageHref)}" width="800" height="${imageHeight}" preserveAspectRatio="${section.aspect ? "xMidYMid slice" : "none"}"/></g></svg>` : ""}${bubbles}${sounds}</svg>`;
 }

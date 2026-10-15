@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
+import { ImageCropEditor, ImageSourceIcon } from "./ImageCropEditor";
 import { bubbleFlipPlacement, comicHeight, comicImageHeight, fitComicContent, layoutBubbleText, minimumComicSpace, renderComicSvg, soundBounds, updateComicSpace } from "@/lib/storyboard/comic-svg";
 import { newId, type ComicBubble, type ComicSection, type ComicSound } from "@/lib/storyboard/model";
 import { StoryboardLibraryDialog } from "./StoryboardLibraryDialog";
@@ -58,6 +59,7 @@ function moveBubbleMembers(section: ComicSection, originals: ComicBubble[], dx: 
 
 export function ComicSectionEditor({ section, library, libraryChapters, defaultChapter, onUploaded, onChapterCreated, onChange }: { section: ComicSection; library: string[]; libraryChapters: string[]; defaultChapter: string; onUploaded: (src: string) => void; onChapterCreated: (chapter: string) => void; onChange: Change }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [imageEditing, setImageEditing] = useState(false);
   const [picker, setPicker] = useState(false);
   const [query, setQuery] = useState("");
   const [chapter, setChapter] = useState("");
@@ -116,7 +118,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
       onChange(next => {
         const oldBottom = next.topSpace + comicImageHeight(next);
         const oldImageHeight = comicImageHeight(next);
-        next.src = src; next.imageWidth = dimensions.width; next.imageHeight = dimensions.height;
+        next.src = src; next.crop = undefined; next.imageWidth = dimensions.width; next.imageHeight = dimensions.height;
         const delta = comicImageHeight(next) - oldImageHeight;
         for (const bubble of next.bubbles) {
           if (bubble.y >= oldBottom) bubble.y += delta;
@@ -126,7 +128,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
         fitComicContent(next);
         next.renderedSrc = undefined;
       });
-      setPicker(false);
+      setPicker(false); setImageEditing(false);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Image selection failed."); }
   }
   async function uploadFile(file: File) {
@@ -430,11 +432,12 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
     </div>}
     </div>}
     <div className="comic-actions"><button type="button" disabled={section.bubbles.length >= 30} onClick={addBubble}>+ Bubble</button><button type="button" disabled={section.bubbles.length >= 30} onClick={() => addText("above")}>+ Text above</button><button type="button" disabled={section.bubbles.length >= 30} onClick={() => addText("below")}>+ Text below</button><button type="button" disabled={section.sounds.length >= 30} onClick={addSound}>+ Sound effect</button><button type="button" aria-pressed={mobile} onClick={() => setMobile(value => !value)}>{mobile ? "Desktop preview" : "Mobile preview"}</button></div>
-    {!emptyImage && <div className="comic-source-row" aria-label="Image source"><button type="button" onClick={() => setPicker(value => !value)}>{section.src ? "Replace from library" : "Choose from library"}</button><label className="comic-upload">{uploading ? "Uploading…" : "Upload image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadFile(file); }} /></label></div>}
+    {!emptyImage && <div className="comic-source-row" aria-label="Image source"><button type="button" className="comic-source-icon" title={section.src ? "Replace from library" : "Choose from library"} aria-label={section.src ? "Replace from library" : "Choose from library"} onClick={() => setPicker(value => !value)}><ImageSourceIcon /></button><label className="comic-upload comic-source-icon" title={uploading ? "Uploading…" : "Upload image"}><ImageSourceIcon upload /><input aria-label="Upload image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadFile(file); }} /></label></div>}
     <div className={`comic-stage-wrap${fileOver ? " is-file-over" : ""}${!section.src ? " is-empty" : ""}`} onDragEnter={dragOverImage} onDragOver={dragOverImage} onDragLeave={dragLeaveImage} onDrop={dropImage}>
       {emptyImage ? <div className="sb-image-placeholder sb-file-dropzone comic-empty-drop" role="group" aria-label="Comic image drop zone"><svg className="sb-drop-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 4v15m0 0-5-5m5 5 5-5M6 23v4h20v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg><p>{uploading ? "Uploading…" : fileOver ? "Release to add image" : "Drop image here"}</p><button type="button" onClick={() => setPicker(value => !value)}>Choose from image library</button><label className="sb-upload">Upload image<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadFile(file); }} /></label></div> :
-      <div ref={canvasRef} className="comic-stage" style={{ maxWidth: mobile ? 312 : 480 }} role="group" tabIndex={0} aria-label="Comic composition canvas" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onLostPointerCapture={() => { drag.current = null; }} onKeyDown={keyDown}>
+      <div ref={canvasRef} className="comic-stage" style={{ maxWidth: mobile ? 312 : 480 }} role="group" tabIndex={0} aria-label="Comic composition canvas" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onLostPointerCapture={() => { drag.current = null; }} onKeyDown={event => { if (event.key === "Enter" && event.target === event.currentTarget && section.src) { setSelected(null); setImageEditing(true); } else keyDown(event); }} onDoubleClick={event => { if (section.src && (event.target as Element).closest("[data-comic-image]")) { setSelected(null); setImageEditing(true); } }}>
         <div dangerouslySetInnerHTML={{ __html: svg }} />
+        {imageEditing && section.src && <ImageCropEditor overlay src={section.src} alt={section.title} value={section.crop} onClose={() => setImageEditing(false)} style={{ left: 0, right: 0, top: `${section.topSpace / comicHeight(section) * 100}%`, height: `${comicImageHeight(section) / comicHeight(section) * 100}%` }} onChange={crop => onChange(next => { if (crop.scale === 1) delete next.crop; else next.crop = crop; next.renderedSrc = undefined; })} />}
         {activeBubble && <div className="comic-bubble-tools" style={{ left: `${(activeBubble.x + activeBubble.width) / 8}%`, top: `${activeBubble.y / comicHeight(section) * 100}%` }} onPointerDown={event => event.stopPropagation()}>
           {activeBubble.shape !== "rectangle" && !activeBubble.parentId && <button type="button" title="Flip bubble above or below" aria-label="Flip bubble above or below" onClick={() => flipBubble(activeBubble)}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 2v16m0 0-4-4m4 4 4-4M14 18V2m0 0-4 4m4-4 4 4" /></svg></button>}
           {activeBubble.shape !== "rectangle" && <button type="button" title="Add connected bubble" aria-label="Add connected bubble" disabled={section.bubbles.length >= 30} onClick={() => addConnectedBubble(activeBubble)}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v14M3 10h14" /></svg></button>}
