@@ -387,7 +387,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
   const soundSize = activeSound ? soundBounds(activeSound) : null;
   const soundOverlay = activeSound && soundSize ? `<g data-sound-id="${escapeAttribute(activeSound.id)}" transform="translate(${activeSound.x} ${activeSound.y}) rotate(${activeSound.rotation})"><rect x="${-soundSize.width / 2}" y="${-soundSize.height / 2}" width="${soundSize.width}" height="${soundSize.height}" fill="transparent" stroke="#e8a650" stroke-width="2" stroke-dasharray="8 6" pointer-events="all"/><rect data-handle="size" x="${soundSize.width / 2 - 11}" y="${soundSize.height / 2 - 11}" width="22" height="22" rx="3" fill="#e8a650" stroke="#171412" stroke-width="2"/><circle data-handle="rotate" cx="0" cy="${-soundSize.height / 2 - 24}" r="12" fill="#e8a650" stroke="#171412" stroke-width="2"/><g data-handle="delete" transform="translate(${soundSize.width / 2 - 16} ${-soundSize.height / 2 + 16})"><title>Delete sound effect</title><circle r="17" fill="#a84032" stroke="#fff" stroke-width="2"/>${trashIcon}</g></g>` : "";
   const overlay = bubbleOverlay + soundOverlay;
-  const svg = renderComicSvg(section, section.src, undefined, activeBubble?.id).replace("</svg>", `${overlay}</svg>`);
+  const svg = renderComicSvg(section, section.src, undefined, activeBubble?.id, overlay);
 
   return <div className="comic-editor">
     <div className="comic-settings">

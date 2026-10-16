@@ -1,3 +1,4 @@
+import { parseFragment } from "parse5";
 import test from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
@@ -49,4 +50,19 @@ test("a changed comic crop invalidates the cached published raster", () => {
   assert.equal(prepareComicPublication(draft, previous).renderJobs.length, 0);
   (draft.chapters[0].sections[0] as ComicSection).crop = { scale: 2, x: 0, y: 0 };
   assert.equal(prepareComicPublication(draft, previous).renderJobs.length, 1);
+});
+
+
+test("editor transform handles stay in the root coordinate system outside the cropped image SVG", () => {
+  const sample = comic();
+  sample.crop = { scale: 3, x: 40, y: -30 };
+  const overlay = '<g data-editor-overlay="true"><rect data-handle="resize" x="400" y="40" width="24" height="24"/></g>';
+  const fragment = parseFragment(renderComicSvg(sample, sample.src, undefined, undefined, overlay));
+  const root = fragment.childNodes[0];
+  assert.ok("childNodes" in root);
+  const handles = root.childNodes.find(node => "attrs" in node && node.attrs.some(attr => attr.name === "data-editor-overlay"));
+  assert.ok(handles, "controls must be a direct child of the composition SVG");
+  const image = root.childNodes.find(node => "attrs" in node && node.attrs.some(attr => attr.name === "data-comic-image"));
+  assert.ok(image && "childNodes" in image);
+  assert.equal(image.childNodes.includes(handles), false);
 });
