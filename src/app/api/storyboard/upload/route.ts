@@ -1,3 +1,4 @@
+import { isStoryboardAuthError } from "@/lib/storyboard/auth-error";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
     await writeFile(join(target.directory, name), bytes);
     return NextResponse.json({ src: target.src });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Upload failed." }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Upload failed.";
+    return NextResponse.json({ error: message }, { status: isStoryboardAuthError(message) ? 401 : 500 });
   }
 }

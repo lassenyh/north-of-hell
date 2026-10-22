@@ -66,10 +66,11 @@ export function StoryboardDocumentView({ document, floatingChapterJump = false, 
   return (
     <main className={`storyboard-document ${floatingChapterJump ? "storyboard-reader" : ""}`} aria-label={preview ? "Draft preview" : "Published storyboard"}>
       {floatingChapterJump && <StoryboardReaderControls chapters={chapters} sections={readerSections} scope={readerScope} showTour={showReaderTour} />}
+      {preview && !floatingChapterJump && <ChapterJump chapters={chapters} />}
       <header className={`storyboard-document-header${headerImage ? " storyboard-document-header--image" : ""}`}>
         <h1>{headerImage ? <Image src={headerImage.src} alt="North of Hell" width={800} height={headerImage.height} unoptimized sizes="(max-width: 520px) 100vw, 520px" /> : document.title}</h1>
       </header>
-      {!floatingChapterJump && <ChapterJump chapters={chapters} />}
+      {!preview && !floatingChapterJump && <ChapterJump chapters={chapters} />}
       {document.chapters.map((chapter, index) => (
         <article key={chapter.id} id={`chapter-${chapter.id}`} className="storyboard-chapter">
           <header className="storyboard-chapter-header">

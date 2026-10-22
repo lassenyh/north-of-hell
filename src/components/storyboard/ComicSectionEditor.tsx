@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
+import { StoryboardErrorMessage } from "./StoryboardErrorMessage";
 import { ImageCropEditor, ImageSourceIcon } from "./ImageCropEditor";
 import { bubbleFlipPlacement, comicHeight, comicImageHeight, fitComicContent, layoutBubbleText, minimumComicSpace, renderComicSvg, soundBounds, updateComicSpace } from "@/lib/storyboard/comic-svg";
 import { newId, type ComicBubble, type ComicSection, type ComicSound } from "@/lib/storyboard/model";
@@ -397,7 +398,7 @@ export function ComicSectionEditor({ section, library, libraryChapters, defaultC
       <label className="comic-background-color">Background <input type="color" value={section.background} onChange={event => onChange(next => { next.background = event.target.value; next.renderedSrc = undefined; })} /></label>
     </div>
     {picker && <StoryboardLibraryDialog title={section.src ? "Replace comic image" : "Choose comic image"} onClose={() => setPicker(false)}><div className="comic-picker"><StoryboardLibraryUpload chapters={libraryChapters} defaultChapter={defaultChapter} onChapterCreated={onChapterCreated} onUploaded={src => { onUploaded(src); setChapter(libraryChapter(src)); setQuery(""); setLimit(24); }} /><div className="comic-picker-filters"><select aria-label="Filter comic images by chapter" value={chapter} onChange={event => { setChapter(event.target.value); setLimit(24); }}><option value="">All chapters</option>{chapters.map(name => <option key={name} value={name}>{name}</option>)}</select><input aria-label="Search comic image library" placeholder="Search images…" value={query} onChange={event => { setQuery(event.target.value); setLimit(24); }} /></div><p>{matches.length} images</p><div className="comic-picker-grid">{matches.slice(0, limit).map(src => <button key={src} type="button" title={decodeURIComponent(src)} draggable onDragStart={event => { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData(comicLibraryDragType, src); }} onDragEnd={() => setFileOver(false)} onClick={() => void chooseImage(src)}><span><Image src={src} alt="" fill unoptimized sizes="110px" draggable={false} /></span><small>{decodeURIComponent(src.split("/").at(-1) || src).replace(/^[0-9]+-[0-9a-f-]{36}-/, "")}</small></button>)}</div>{matches.length > limit && <button type="button" onClick={() => setLimit(value => value + 24)}>Show more</button>}</div></StoryboardLibraryDialog>}
-    {error && <p className="comic-error" role="alert">{error}</p>}
+    {error && <p className="comic-error" role="alert"><StoryboardErrorMessage message={error} /></p>}
     {(section.bubbles.length > 0 || section.sounds.length > 0) && <div className="comic-inspector-slot">
     {!activeBubble && !activeSound && <div className="comic-inspector comic-inspector-empty"><p>Select a bubble, text panel or sound effect on the image to edit it.</p></div>}
     {activeBubble && <div className="comic-inspector" key={activeBubble.id}>

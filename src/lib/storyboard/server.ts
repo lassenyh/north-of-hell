@@ -1,4 +1,5 @@
 import "server-only";
+import { STORYBOARD_AUTH_REQUIRED } from "./auth-error";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { cookies } from "next/headers";
@@ -17,7 +18,7 @@ const localPath = storyboardLocalMode && process.env.STORYBOARD_LOCAL_STATE_PATH
 export async function requireStoryboardEditor() {
   if (storyboardLocalMode) return;
   const id = (await cookies()).get("noh_admin_auth")?.value;
-  if (!id || !(await getAdminLoginById(id))) throw new Error("Sign in as an administrator to edit the storyboard.");
+  if (!id || !(await getAdminLoginById(id))) throw new Error(STORYBOARD_AUTH_REQUIRED);
 }
 
 export async function legacyStoryboardDocument(): Promise<StoryboardDocument> {
