@@ -11,6 +11,8 @@ import { ScreenplayToolbar } from "@/components/screenplay/ScreenplayToolbar";
 import { MainSiteHeader } from "@/components/MainSiteHeader";
 import { StoryboardDocumentView, SectionContent, cleanTextHtml } from "./StoryboardDocumentView";
 import { ComicSectionEditor } from "./ComicSectionEditor";
+import { ComicInsertDialog } from "./ComicInsertDialog";
+import { createComicSection, insertComicImages } from "@/lib/storyboard/comic-insert";
 import { VideoSectionEditor } from "./VideoSectionEditor";
 import { StoryboardLibraryDialog } from "./StoryboardLibraryDialog";
 import { StoryboardShareDialog } from "./StoryboardShareDialog";
@@ -97,6 +99,7 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
   const [showHiddenLibrary, setShowHiddenLibrary] = useState(false);
   const [libraryChapters, setLibraryChapters] = useState(initialLibraryChapters);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [comicInsertTarget, setComicInsertTarget] = useState<{ chapterId: string; afterSectionId?: string } | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [libraryError, setLibraryError] = useState("");
   const [deletingLibraryImage, setDeletingLibraryImage] = useState<string | null>(null);
@@ -255,6 +258,10 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
     setExpandedChapters(current => [...current, id]);
   }
   function addSection(chapterId: string, kind: Section["kind"], afterSectionId?: string) {
+    if (kind === "comic") { setComicInsertTarget({ chapterId, afterSectionId }); return; }
+    addSingleSection(chapterId, kind, afterSectionId);
+  }
+  function addSingleSection(chapterId: string, kind: Section["kind"], afterSectionId?: string) {
     const id = newId();
     change(doc => {
       const ch = doc.chapters.find(c => c.id === chapterId);
@@ -263,7 +270,7 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
         : kind === "screenplay" ? { id, kind, title: "New screenplay section", blocks: [{ type: "scene_heading", text: "" }] }
         : kind === "images" ? { id, kind, title: "New image section", layout: "single", images: [] }
         : kind === "video" ? { id, kind, title: "New video section", src: "" }
-        : { id, kind: "comic", title: "New comic section", src: "", description: "", aspect: "16:9", imageWidth: 800, imageHeight: 450, topSpace: 200, bottomSpace: 0, background: "#000000", bubbles: [], sounds: [] };
+        : { ...createComicSection(), id };
       insertNumberedSection(doc, chapterId, section, afterSectionId);
     });
     setSelectedId(id);
@@ -590,6 +597,14 @@ function StoryboardEditorContent({ initial, library: initialLibrary, libraryChap
         </main>
       </div>
     </>}
+    {comicInsertTarget && <ComicInsertDialog library={library} chapters={libraryChapters} chapterName={document.chapters.find(chapter => chapter.id === comicInsertTarget.chapterId)?.title || "Chapter"} remaining={Math.max(0, 500 - (document.chapters.find(chapter => chapter.id === comicInsertTarget.chapterId)?.sections.length ?? 500))} onClose={() => setComicInsertTarget(null)} onUploaded={addLibraryImage} onSingle={() => { addSingleSection(comicInsertTarget.chapterId, "comic", comicInsertTarget.afterSectionId); setComicInsertTarget(null); }} onBatch={sources => {
+      const next = structuredClone(document);
+      const sections = insertComicImages(next, comicInsertTarget.chapterId, sources, comicInsertTarget.afterSectionId);
+      setDocument(next); setError(""); setFlash(`${sections.length} comic scrolls added`);
+      setSelectedId(sections[0].id);
+      setExpandedChapters(current => current.includes(comicInsertTarget.chapterId) ? current : [...current, comicInsertTarget.chapterId]);
+      setComicInsertTarget(null);
+    }} />}
     {libraryOpen && <StoryboardLibraryDialog title="Image library" onClose={() => setLibraryOpen(false)}>
       <StoryboardLibraryUpload chapters={libraryChapters} defaultChapter={document.chapters.find(chapter => chapter.id === selectedId || chapter.sections.some(section => section.id === selectedId))?.title} onChapterCreated={chapter => { addLibraryChapter(chapter); setLibraryFilter(chapter); setLibraryLimit(48); }} onUploaded={src => { addLibraryImage(src); setLibraryFilter(libraryChapterOf(src)); setLibrarySearch(""); setLibraryLimit(48); }} />
       <div className="sb-library-filters"><select aria-label="Filter library by chapter" value={libraryFilter} onChange={event => { setLibraryFilter(event.target.value); setLibraryLimit(48); }}><option value="">All chapters</option>{libraryChapters.map(chapter => <option key={chapter}>{chapter}</option>)}</select><input aria-label="Search library" placeholder="Search frames…" value={librarySearch} onChange={event => { setLibrarySearch(event.target.value); setLibraryLimit(48); }} /></div>
